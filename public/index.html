@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🐺 Hombres Lobos Automático</title>
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #1f2937;
+      color: white;
+      min-height: 100vh;
+      padding: 1rem;
+    }
+    .container { max-width: 600px; margin: 0 auto; }
+    
+    .screen { display: none; }
+    .screen.active { display: block; }
+    
+    h1, h2, h3 { margin-bottom: 1rem; }
+    p { font-size: 14px; margin-bottom: 8px; color: #ccc; }
+    
+    input, select {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    button:hover { background: #2563eb; }
+    button.success { background: #10b981; }
+    button.danger { background: #ef4444; }
+    
+    .card {
+      background: #374151;
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+    
+    .role-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 2rem 1rem;
+      border-radius: 12px;
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .role-card h3 { font-size: 28px; margin-bottom: 8px; }
+    
+    .narrator-box {
+      background: #fbbf24;
+      color: #111;
+      padding: 1.5rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      text-align: center;
+      font-weight: bold;
+      font-size: 16px;
+    }
+    
+    .logs {
+      background: #111;
+      padding: 10px;
+      border-radius: 6px;
+      max-height: 150px;
+      overflow-y: auto;
+      font-size: 11px;
+      line-height: 1.6;
+      margin-bottom: 1rem;
+      border: 1px solid #333;
+    }
+    
+    .role-selector {
+      background: #1f2937;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid #374151;
+    }
+    
+    .role-selector input {
+      width: 60px;
+      margin: 0;
+      padding: 6px;
+    }
+    
+    .role-selector label {
+      font-size: 13px;
+      margin: 0;
+    }
+    
+    .code-box {
+      background: #4f46e5;
+      padding: 1.5rem;
+      border-radius: 8px;
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+    .code-box h1 { font-size: 36px; margin: 0.5rem 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    
+    <div id="initialScreen" class="screen active">
+      <h1>🐺 Hombres Lobos</h1>
+      <button class="success" onclick="showCreateRoom()">👑 Crear sala (Narrador)</button>
+      <button onclick="showJoinRoom()">📱 Unirse (Jugador)</button>
+    </div>
+
+    <div id="createRoomScreen" class="screen">
+      <h2>Crear sala</h2>
+      <input type="text" id="hostNameInput" placeholder="Tu nombre" autocomplete="off">
+      <button class="success" onclick="createRoom()">Crear</button>
+      <button class="danger" onclick="backToInitial()">Volver</button>
+    </div>
+
+    <div id="joinRoomScreen" class="screen">
+      <h2>Unirse a sala</h2>
+      <input type="text" id="codeInput" placeholder="Código" autocomplete="off">
+      <input type="text" id="playerNameInput" placeholder="Tu nombre" autocomplete="off">
+      <button class="success" onclick="joinRoom()">Entrar</button>
+      <button class="danger" onclick="backToInitial()">Volver</button>
+    </div>
+
+    <!-- PANTALLA DE SETUP: Número de jugadores -->
+    <div id="setupPlayersScreen" class="screen">
+      <h2>⚙️ Configura el juego</h2>
+      
+      <p>¿Cuántos jugadores?</p>
+      <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
+        <input type="range" id="playerCount" min="4" max="20" value="6" 
+               style="width: 100%; padding: 0; margin: 0;" 
+               oninput="updatePlayerCount()">
+      </div>
+      <p style="text-align: center; font-size: 16px; font-weight: bold; color: #10b981; margin: 0 0 1rem 0;">
+        <span id="playerCountDisplay">6</span> jugadores
+      </p>
+
+      <button class="success" onclick="nextToRoles()">Siguiente: elegir roles</button>
+      <button class="danger" onclick="backToInitial()">Cancelar</button>
+    </div>
+
+    <!-- PANTALLA DE SETUP: Seleccionar roles -->
+    <div id="setupRolesScreen" class="screen">
+      <h2>🎭 Elige los roles</h2>
+      <p style="font-size: 12px; color: #999; margin-bottom: 1rem;">Los datos vacíos = 0 (sin ese rol)</p>
+      
+      <div id="roleSelector" style="max-height: 400px; overflow-y: auto; margin-bottom: 1rem;"></div>
+
+      <div class="card" style="background: #1f2937; text-align: center; padding: 1rem;">
+        <p style="font-size: 12px; margin: 0 0 6px 0;">Aldeanos (se completan automáticamente):</p>
+        <p style="font-size: 18px; font-weight: bold; color: #10b981; margin: 0;" id="aldeanoCount">0</p>
+      </div>
+
+      <button class="success" onclick="confirmRoles()">✅ Confirmar roles</button>
+      <button onclick="backToPlayers()">Volver</button>
+    </div>
+
+    <!-- PANTALLA DEL ANFITRIÓN: Sala lista -->
+    <div id="hostSetupScreen" class="screen">
+      <h2>🎭 Narrador - Esperando jugadores</h2>
+      
+      <div class="code-box">
+        <p style="color: white; margin: 0 0 8px 0;">Código:</p>
+        <h1 id="codeDisplay">---</h1>
+        <button onclick="copyCode()" style="background: white; color: #4f46e5; margin-top: 8px; padding: 10px;">📋 Copiar</button>
+      </div>
+      
+      <h3 style="color: white; margin: 1rem 0 0.5rem 0;">Jugadores (<span id="pCount">0</span>)</h3>
+      <div id="playerList" class="card" style="max-height: 250px; overflow-y: auto;"></div>
+
+      <button class="success" id="startGameBtn" onclick="startGame()" style="display: none;">▶️ Comenzar partida</button>
+      <button class="danger" onclick="backToInitial()">🚪 Salir</button>
+    </div>
+
+    <!-- PANTALLA DEL NARRADOR: Juego en progreso -->
+    <div id="narratorScreen" class="screen">
+      <h2>🎭 Narrador Automático</h2>
+      <div id="narratorMessage" class="narrator-box">Preparando partida...</div>
+      
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3 style="margin: 0;">Día <span id="dayCount">1</span> <span id="phaseIcon">🌙</span></h3>
+        <p style="margin: 0; font-size: 12px;">🐺 <span id="wolfCount">0</span> | 👤 <span id="villagerCount">0</span></p>
+      </div>
+
+      <div id="playerStatus" class="card" style="max-height: 200px; overflow-y: auto;"></div>
+
+      <div class="logs">
+        <div id="narratorLogs"></div>
+      </div>
+
+      <button id="nextStepBtn" class="success" onclick="nextStep()">⏭️ Siguiente paso</button>
+      <button class="danger" onclick="newGame()">🔄 Nueva partida</button>
+    </div>
+
+    <!-- PANTALLA DEL JUGADOR -->
+    <div id="playerScreen" class="screen">
+      <h2>🐺 Castronegro</h2>
+      
+      <div class="role-card">
+        <p>Tu rol</p>
+        <h3 id="playerRole">?</h3>
+        <p id="playerDesc" style="font-size: 12px; margin: 0;"></p>
+      </div>
+
+      <div id="playerMessage" class="card" style="text-align: center;"></div>
+
+      <div class="logs">
+        <div id="playerLogs"></div>
+      </div>
+
+      <button class="danger" onclick="backToInitial()">🚪 Salir</button>
+    </div>
+
+  </div>
+
+  <script>
+    const socket = io();
+    const ROLES = {
+      aldeano: { name: 'Aldeano', desc: 'Sin poderes' },
+      lobo: { name: 'Hombre Lobo', desc: 'Mata cada noche' },
+      vidente: { name: 'Vidente', desc: 'Ve rol' },
+      bruja: { name: 'Bruja', desc: 'Protege/envenena' },
+      cazador: { name: 'Cazador', desc: 'Dispara al morir' },
+      pequenia: { name: 'Pequeña Niña', desc: 'Ve lobos' },
+      amor: { name: 'Enamorados', desc: 'Mueren juntos' },
+      zorro: { name: 'Zorro', desc: 'Busca lobos' },
+      flautista: { name: 'Flautista', desc: 'Hechiza' },
+      anciano: { name: 'Anciano', desc: 'Resiste ataque' },
+      domador: { name: 'Domador de Osos', desc: 'Gruñe de día' },
+      inquisidor: { name: 'Inquisidor', desc: 'Interroga' },
+      alcalde: { name: 'Alcalde', desc: 'Voto doble' },
+      justiciero: { name: 'Justiciero', desc: 'Muere por voto injusto' },
+      principe: { name: 'Príncipe', desc: 'Inmune a votos' },
+      picaro: { name: 'Pícaro', desc: 'Pierde si vidente lo ve' },
+      chivo: { name: 'Chivo Expiatorio', desc: 'Voto extra' },
+      pastor: { name: 'Pastor', desc: 'Conoce a otro' },
+      hermanas: { name: 'Dos Hermanas', desc: 'Se conocen (2 personas)' },
+      ninoSalvaje: { name: 'Niño Salvaje', desc: 'Elige modelo' },
+      loboFeroz: { name: 'Lobo Feroz', desc: 'Come dos veces' },
+    };
+
+    const ROLE_LIMITS = {
+      aldeano: 999, lobo: 999, vidente: 1, bruja: 1, cazador: 1, pequenia: 1,
+      amor: 1, zorro: 1, flautista: 1, anciano: 1, domador: 1, inquisidor: 1,
+      alcalde: 1, justiciero: 1, principe: 1, picaro: 1, chivo: 1, pastor: 1,
+      hermanas: 1, ninoSalvaje: 1, loboFeroz: 1,
+    };
+
+    let currentRoom = null;
+    let currentPlayer = null;
+    let currentGame = null;
+    let isHost = false;
+    let maxPlayers = 6;
+    let selectedRoles = {};
+
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    function backToInitial() {
+      showScreen('initialScreen');
+      currentRoom = null;
+    }
+
+    function backToPlayers() {
+      showScreen('setupPlayersScreen');
+    }
+
+    function showCreateRoom() { showScreen('createRoomScreen'); }
+    function showJoinRoom() { showScreen('joinRoomScreen'); }
+
+    function createRoom() {
+      const name = document.getElementById('hostNameInput').value.trim();
+      if (!name) return alert('Escribe tu nombre');
+      socket.emit('createRoom', { hostName: name });
+    }
+
+    function joinRoom() {
+      const code = document.getElementById('codeInput').value.trim().toUpperCase();
+      const name = document.getElementById('playerNameInput').value.trim();
+      if (!code || !name) return alert('Completa los datos');
+      socket.emit('joinRoom', { code, playerName: name });
+    }
+
+    function updatePlayerCount() {
+      maxPlayers = parseInt(document.getElementById('playerCount').value);
+      document.getElementById('playerCountDisplay').textContent = maxPlayers;
+    }
+
+    function nextToRoles() {
+      selectedRoles = {};
+      showScreen('setupRolesScreen');
+      renderRoleSelector();
+    }
+
+    function renderRoleSelector() {
+      const selector = document.getElementById('roleSelector');
+      selector.innerHTML = '';
+      
+      Object.entries(ROLES).forEach(([key, role]) => {
+        if (key === 'aldeano') return;
+        const div = document.createElement('div');
+        div.className = 'role-selector';
+        div.innerHTML = `
+          <label>${role.name}</label>
+          <input type="number" min="0" max="${ROLE_LIMITS[key]}" value="0" 
+                 onchange="updateRoleCount('${key}', this.value)">
+        `;
+        selector.appendChild(div);
+      });
+    }
+
+    function updateRoleCount(role, count) {
+      selectedRoles[role] = parseInt(count) || 0;
+      calculateAldeanos();
+    }
+
+    function calculateAldeanos() {
+      let total = 0;
+      Object.values(selectedRoles).forEach(c => total += c);
+      const aldeanos = Math.max(0, maxPlayers - total);
+      document.getElementById('aldeanoCount').textContent = aldeanos;
+    }
+
+    function confirmRoles() {
+      calculateAldeanos();
+      selectedRoles['aldeano'] = Math.max(0, maxPlayers - Object.values(selectedRoles).reduce((a, b) => a + b, 0));
+      socket.emit('setupGame', { code: currentRoom, maxPlayers, selectedRoles });
+    }
+
+    function copyCode() {
+      const code = document.getElementById('codeDisplay').textContent;
+      navigator.clipboard.writeText(code).then(() => alert('✅ Copiado'));
+    }
+
+    function startGame() {
+      socket.emit('startGame', { code: currentRoom });
+    }
+
+    function nextStep() {
+      socket.emit('nextNightStep', { code: currentRoom });
+    }
+
+    function newGame() {
+      socket.emit('newGame', { code: currentRoom });
+    }
+
+    socket.on('roomCreated', (data) => {
+      currentRoom = data.code;
+      isHost = true;
+      showScreen('setupPlayersScreen');
+      updatePlayerCount();
+    });
+
+    socket.on('roomJoined', (data) => {
+      currentRoom = data.code;
+      showScreen('playerScreen');
+    });
+
+    socket.on('gameReady', () => {
+      showScreen('hostSetupScreen');
+      document.getElementById('startGameBtn').style.display = 'block';
+    });
+
+    socket.on('updateGame', (game) => {
+      currentGame = game;
+      const player = game.players.find(p => p.id === socket.id);
+      currentPlayer = player;
+
+      document.getElementById('codeDisplay').textContent = currentRoom;
+      document.getElementById('pCount').textContent = game.players.length;
+      
+      if (isHost && !game.gameStarted) {
+        document.getElementById('playerList').innerHTML = game.players
+          .map(p => `<div style="padding: 8px; border-bottom: 1px solid #555;">
+            ${p.name} - ${ROLES[p.role]?.name || p.role}
+          </div>`).join('');
+      }
+
+      if (game.gameStarted) {
+        if (isHost) updateNarratorUI(game);
+        else if (player) updatePlayerUI(game, player);
+      }
+    });
+
+    socket.on('gameStarted', (game) => {
+      currentGame = game;
+      if (isHost) showScreen('narratorScreen');
+    });
+
+    socket.on('narratorGuide', (data) => {
+      document.getElementById('narratorMessage').textContent = data.message;
+    });
+
+    function updateNarratorUI(game) {
+      const alive = game.players.filter(p => p.alive);
+      const wolves = alive.filter(p => ROLES[p.role]?.team === 'wolves');
+
+      document.getElementById('dayCount').textContent = game.day;
+      document.getElementById('phaseIcon').textContent = game.isNight ? '🌙' : '☀️';
+      document.getElementById('wolfCount').textContent = wolves.length;
+      document.getElementById('villagerCount').textContent = alive.length - wolves.length;
+
+      document.getElementById('playerStatus').innerHTML = game.players.map(p => `
+        <div style="padding: 8px; border-left: 3px solid ${!p.alive ? '#ef4444' : '#3b82f6'}; opacity: ${!p.alive ? '0.5' : '1'};">
+          ${p.name} - ${ROLES[p.role]?.name || p.role} ${!p.alive ? '💀' : ''}
+        </div>
+      `).join('');
+
+      document.getElementById('narratorLogs').innerHTML = game.logs.slice(-8).map(log => `<div>${log}</div>`).join('');
+    }
+
+    function updatePlayerUI(game, player) {
+      document.getElementById('playerRole').textContent = ROLES[player.role]?.name || '?';
+      document.getElementById('playerDesc').textContent = ROLES[player.role]?.desc || '';
+
+      let message = !player.alive ? '💀 Estás muerto.' : game.isNight ? '🌙 Es noche.' : '☀️ Es día.';
+      document.getElementById('playerMessage').innerHTML = `<p style="margin: 0;">${message}</p>`;
+      document.getElementById('playerLogs').innerHTML = game.logs.slice(-8).map(log => `<div>${log}</div>`).join('');
+    }
+
+    socket.on('error', (msg) => alert('❌ ' + msg));
+  </script>
+</body>
+</html>

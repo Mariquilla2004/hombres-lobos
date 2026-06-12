@@ -132,7 +132,7 @@ let myVote = null;
 
 const ROLE_INFO = {
   aldeano:'Aldeano', lobo:'Hombre Lobo', vidente:'Vidente', bruja:'Bruja', cazador:'Cazador',
-  pequenia:'Niña Pequeña', amor:'Enamorados (x2)', zorro:'Zorro', flautista:'Flautista',
+  pequenia:'Niña Pequeña', cupido:'Cupido', zorro:'Zorro', flautista:'Flautista',
   anciano:'Anciano', domador:'Domador de Osos', inquisidor:'Inquisidor',
   justiciero:'Justiciero', principe:'Príncipe', picaro:'Pícaro', chivo:'Chivo Expiatorio',
   pastor:'Pastor', hermanas:'Dos Hermanas (x2)', ninoSalvaje:'Niño Salvaje',
@@ -141,7 +141,7 @@ const ROLE_INFO = {
 // máximos del reglamento (Best Of): 1 de cada salvo 3 Lobos Comunes y aldeanos libres
 const ROLE_MAX = { aldeano: 99, lobo: 3 };
 function maxOf(r){ return ROLE_MAX[r] ?? 1; }
-const DOUBLE_CARDS = ['amor','hermanas'];
+const DOUBLE_CARDS = ['hermanas'];
 const WOLF_KEYS = ['lobo','loboFeroz','hobreLoboAlbino','infectoPadre'];
 
 function $(id){ return document.getElementById(id); }

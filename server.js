@@ -15,7 +15,7 @@ const ROLES = {
   bruja:          { name: 'Bruja', desc: 'Tiene 2 pociones: una cura y un veneno (1 uso cada una).', team: 'village' },
   cazador:        { name: 'Cazador', desc: 'Al morir, dispara y se lleva a alguien por delante.', team: 'village' },
   pequenia:       { name: 'Niña Pequeña', desc: 'Espía a los lobos mientras actúan.', team: 'village' },
-  amor:           { name: 'Enamorados', desc: 'Se conocen y mueren juntos. (2 jugadores)', team: 'village', cards: 2 },
+  cupido:         { name: 'Cupido', desc: 'Elige a dos personas que se enamoran en la primera noche.', team: 'village' },
   zorro:          { name: 'Zorro', desc: 'Cada noche olfatea a un jugador y sus vecinos buscando lobos. Si falla, pierde el olfato.', team: 'village' },
   flautista:      { name: 'Flautista', desc: 'Cada noche hechiza a 2 jugadores. Gana si hechiza a todos.', team: 'solo' },
   anciano:        { name: 'Anciano', desc: 'Sobrevive al primer ataque de los lobos. Si el pueblo lo mata, todos pierden sus poderes.', team: 'village' },
@@ -36,7 +36,7 @@ const ROLES = {
 // Límites según la caja del Best Of: máximo 1 de cada, salvo 3 Lobos Comunes y aldeanos libres
 const ROLE_LIMITS = {
   aldeano: 999, lobo: 3,
-  vidente: 1, bruja: 1, cazador: 1, pequenia: 1, amor: 1, zorro: 1, flautista: 1,
+  vidente: 1, bruja: 1, cazador: 1, pequenia: 1, cupido: 1, zorro: 1, flautista: 1,
   anciano: 1, domador: 1, inquisidor: 1, justiciero: 1, principe: 1,
   picaro: 1, chivo: 1, pastor: 1, hermanas: 1, ninoSalvaje: 1,
   loboFeroz: 1, hobreLoboAlbino: 1, infectoPadre: 1,
@@ -119,12 +119,6 @@ function assignRoles(room) {
     p.charmed = false;
     p.revealedPrince = false;
   });
-  // los enamorados por carta se enlazan entre sí
-  const lovers = room.players.filter(p => p.role === 'amor');
-  if (lovers.length === 2) {
-    lovers[0].lover = lovers[1].pid;
-    lovers[1].lover = lovers[0].pid;
-  }
   // el Alcalde es un cargo público sorteado, independiente de la carta
   room.players.forEach(p => { p.isAlcalde = false; });
   const alc = room.players[Math.floor(Math.random() * room.players.length)];
@@ -149,7 +143,10 @@ function buildNightQueue(room) {
   const powers = !room.villagePowersLost;
 
   if (n === 1) {
-    if (byRole(room, 'amor').length === 2) q.push('amor_info');
+    if (has('cupido')) {
+      q.push('cupido');
+      q.push('amor_info');
+    }
     if (byRole(room, 'hermanas').length === 2) q.push('hermanas_info');
     if (has('pastor')) q.push('pastor_info');
     if (has('ninoSalvaje')) q.push('ninoSalvaje');
@@ -191,11 +188,22 @@ function runStep(room, step) {
   const others = me => alive(room).filter(p => p.pid !== me.pid);
 
   switch (step) {
+    case 'cupido': {
+      const cup = byRole(room, 'cupido')[0];
+      announce(room, '💘 Cupido se despierta...');
+      return ask(room, step, [cup], {
+        prompt: '💘 Elige a dos personas para que se enamoren (puedes incluirte).',
+        options: targetOpts(alive(room)), count: 2,
+      });
+    }
     case 'amor_info': {
-      const [a, b] = byRole(room, 'amor');
-      sendTo(room, a, 'info', { message: `💘 Estás enamorado/a de ${b.name}. Si muere, mueres con él/ella.` });
-      sendTo(room, b, 'info', { message: `💘 Estás enamorado/a de ${a.name}. Si muere, mueres con él/ella.` });
-      announce(room, '💘 Los Enamorados se reconocen.');
+      const lovers = room.players.filter(p => p.lover);
+      if (lovers.length === 2) {
+        const [a, b] = lovers;
+        sendTo(room, a, 'info', { message: `💘 Estás enamorado/a de ${b.name}. Si muere, mueres con él/ella.` });
+        sendTo(room, b, 'info', { message: `💘 Estás enamorado/a de ${a.name}. Si muere, mueres con él/ella.` });
+        announce(room, '💘 Los Enamorados se reconocen.');
+      }
       return nextStep(room);
     }
     case 'hermanas_info': {
@@ -325,6 +333,23 @@ function handleAction(room, player, data) {
   room.pending = null;
 
   switch (step) {
+    case 'cupido': {
+      const pids = first;
+      if (pids.length === 2) {
+        const p1 = byPid(room, pids[0]);
+        const p2 = byPid(room, pids[1]);
+        if (p1 && p2) {
+          p1.lover = p2.pid;
+          p2.lover = p1.pid;
+          announce(room, '💘 Cupido ha lanzado sus flechas.');
+          const cup = byRole(room, 'cupido')[0];
+          if (cup) {
+            sendTo(room, cup, 'info', { message: `💘 Has enamorado a ${p1.name} y ${p2.name}.` });
+          }
+        }
+      }
+      break;
+    }
     case 'ninoSalvaje': {
       const nino = byRole(room, 'ninoSalvaje')[0];
       nino.model = first[0] || null;

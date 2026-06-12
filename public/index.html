@@ -97,6 +97,7 @@
 
     <div id="vote-panel" class="card" style="display:none">
       <h3>🗳️ Votación</h3>
+      <div id="alcalde-tag" style="display:none; font-size:18px; font-weight:bold; margin-bottom:12px; text-align:center; padding:8px 16px; border-radius:20px; background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%); color:#fff; box-shadow:0 4px 6px rgba(0,0,0,0.15);"></div>
       <p class="vote-progress" id="vote-progress"></p>
       <div id="vote-options"></div>
       <button class="danger" id="btn-close-vote" onclick="socket.emit('closeVote')" style="display:none">⚖️ Cerrar votación</button>
@@ -155,11 +156,73 @@ function joinGame(){
 socket.on('joined', d => { myPid=d.pid; isHost=d.isHost; });
 socket.on('errorMsg', toast);
 
+let deathQueue = [];
+let currentDeathReveal = null;
+
 // ---- estado ----
 socket.on('state', s => {
+  if (state && state.players && s && s.players && s.phase !== 'lobby') {
+    s.players.forEach(p => {
+      const prev = state.players.find(x => x.pid === p.pid);
+      if (prev && prev.alive && !p.alive) {
+        deathQueue.push({ name: p.name, roleName: p.roleName || 'Desconocido' });
+      }
+    });
+  }
   state = s;
-  if(s.phase==='lobby') renderLobby(); else renderGame();
+  if(s.phase==='lobby') {
+    deathQueue = [];
+    currentDeathReveal = null;
+    const overlay = $('death-overlay');
+    if (overlay) overlay.style.display = 'none';
+    renderLobby();
+  } else {
+    renderGame();
+    checkDeathQueue();
+  }
 });
+
+function checkDeathQueue() {
+  const overlay = $('death-overlay');
+  if (!overlay || deathQueue.length === 0) return;
+  if (overlay.style.display === 'flex') return;
+  
+  const nextDeath = deathQueue.shift();
+  showDeathOverlay(nextDeath);
+}
+
+function showDeathOverlay(death) {
+  currentDeathReveal = { ...death, step: 1 };
+  
+  $('death-card-title').textContent = `💀 ${death.name}`;
+  $('death-card-desc').textContent = 'Ha muerto...';
+  $('death-card-sub').textContent = '👉 Toca para revelar su carta';
+  
+  $('death-card').style.background = 'linear-gradient(135deg, #374151 0%, #1f2937 100%)';
+  $('death-overlay').style.display = 'flex';
+}
+
+function handleDeathCardClick() {
+  if (!currentDeathReveal) return;
+  
+  if (currentDeathReveal.step === 1) {
+    currentDeathReveal.step = 2;
+    $('death-card-title').textContent = `💀 ${currentDeathReveal.name}`;
+    $('death-card-desc').innerHTML = `Era... <br><b style="font-size: 32px; color: #fbbf24; display:block; margin-top:10px;">${currentDeathReveal.roleName}</b>`;
+    $('death-card-sub').textContent = '👉 Toca para continuar';
+    
+    const isWolfRole = ['Hombre Lobo', 'Lobo Feroz', 'Hombre Lobo Albino', 'Infecto Padre'].includes(currentDeathReveal.roleName);
+    if (isWolfRole) {
+      $('death-card').style.background = 'linear-gradient(135deg, #7f1d1d 0%, #b91c1c 100%)';
+    } else {
+      $('death-card').style.background = 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)';
+    }
+  } else {
+    $('death-overlay').style.display = 'none';
+    currentDeathReveal = null;
+    checkDeathQueue();
+  }
+}
 
 function renderLobby(){
   show('screen-lobby');
@@ -283,6 +346,14 @@ function renderGame(){
   if(state.phase==='vote' && state.voteInfo){
     vp.style.display='block';
     const vi = state.voteInfo;
+    const alcalde = state.players.find(p => p.isAlcalde);
+    const alcTag = $('alcalde-tag');
+    if (alcalde) {
+      alcTag.style.display = 'block';
+      alcTag.innerHTML = `👑 El Alcalde es <span style="background:#fff; color:#b45309; padding:2px 8px; border-radius:12px; margin-left:4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); font-weight: bold;">${esc(alcalde.name)}</span>`;
+    } else {
+      alcTag.style.display = 'none';
+    }
     $('vote-progress').innerHTML = `Han votado <b>${vi.voted}/${vi.total}</b>` + (vi.pending.length?`<br><span class="small">Faltan: ${vi.pending.map(esc).join(', ')}</span>`:'');
     if(me && me.alive){
       $('vote-options').innerHTML = state.players.filter(p=>p.alive).map(p =>
@@ -304,5 +375,14 @@ function castVote(pid){
   socket.emit('vote',{targetPid:pid});
 }
 </script>
+
+<div id="death-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:1000; align-items:center; justify-content:center; flex-direction:column; padding:20px;">
+  <div id="death-card" class="role-card" onclick="handleDeathCardClick()" style="width:100%; max-width:400px; padding:2.5rem 1.5rem; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-height:300px; box-shadow:0 10px 25px rgba(0,0,0,0.5); cursor:pointer; margin-bottom:0;">
+    <h2 id="death-card-title" style="margin-bottom:1rem; font-size: 28px;">💀 Alguien ha muerto</h2>
+    <p id="death-card-desc" style="font-size:18px; color:#ddd; margin-bottom:1.5rem;"></p>
+    <div id="death-card-sub" style="font-size:14px; color:#aaa; font-style:italic;">Toca para revelar su carta</div>
+  </div>
+</div>
+
 </body>
 </html>

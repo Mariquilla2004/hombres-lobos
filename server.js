@@ -65,6 +65,16 @@ const ROLE_LIMITS = {
   loboSalvaje: 1,
 };
 
+function buildNarratorHint(selectedRoles, maxPlayers) {
+  const parts = [];
+  for (const [role, count] of Object.entries(selectedRoles || {})) {
+    if (!count) continue;
+    const name = ROLES[role]?.name || role;
+    parts.push(`${count} ${name}${count > 1 ? 's' : ''}`);
+  }
+  return `Juego para ${maxPlayers} jugadores: ${parts.join(', ')}.`;
+}
+
 let gameRooms = {};
 
 io.on('connection', (socket) => {
@@ -82,6 +92,8 @@ io.on('connection', (socket) => {
       nightActions: {},
       maxPlayers: 4,
       selectedRoles: {},
+      narratorMode: data.narratorMode || 'screen',
+      narratorHint: '',
     };
     socket.join(code);
     socket.emit('roomCreated', { code });
@@ -106,7 +118,9 @@ io.on('connection', (socket) => {
 
     room.maxPlayers = data.maxPlayers;
     room.selectedRoles = data.selectedRoles;
-    
+    room.narratorMode = data.narratorMode || room.narratorMode;
+    room.narratorHint = buildNarratorHint(room.selectedRoles, room.maxPlayers);
+
     // Validar que no exceda límites
     for (let role in data.selectedRoles) {
       const count = data.selectedRoles[role];
@@ -118,7 +132,7 @@ io.on('connection', (socket) => {
     }
 
     io.to(data.code).emit('updateGame', room);
-    io.to(data.code).emit('gameReady');
+    io.to(data.code).emit('gameReady', room);
   });
 
   socket.on('assignRole', (data) => {
@@ -138,8 +152,11 @@ io.on('connection', (socket) => {
     room.logs.push(`🎮 Partida iniciada: ${room.players.length} jugadores`);
     room.isNight = true;
     room.currentNightStep = 0;
+    const narrationIntro = room.narratorHint
+      ? `${room.narratorHint} ${room.narratorMode === 'host' ? 'Usa el móvil del creador como narrador.' : 'Muestra esta pantalla como narrador.'}`
+      : 'Cupido, despierta y elige dos enamorados';
     io.to(data.code).emit('gameStarted', room);
-    io.to(data.code).emit('narratorGuide', { step: 'primera_noche_cupido', message: 'Cupido, despierta y elige dos enamorados' });
+    io.to(data.code).emit('narratorGuide', { step: 'primera_noche_cupido', message: narrationIntro });
   });
 
   socket.on('nextNightStep', (data) => {

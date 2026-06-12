@@ -321,8 +321,44 @@ socket.on('yourRole', r => {
 
 function handleRoleOverlayClick() {
   if (!myRole) return;
-  roleOverlayRevealed = !roleOverlayRevealed;
   
+  if (!roleOverlayRevealed && myRole.team === 'wolves') {
+    const video = $('wolf-video');
+    if (video) {
+      video.style.display = 'block';
+      video.currentTime = 0;
+      video.onended = () => {
+        video.style.display = 'none';
+        revealRoleInOverlay();
+      };
+      video.onclick = () => {
+        video.pause();
+        video.style.display = 'none';
+        revealRoleInOverlay();
+      };
+      video.play().catch(err => {
+        console.error('Error playing video:', err);
+        video.style.display = 'none';
+        revealRoleInOverlay();
+      });
+      return;
+    }
+  }
+  
+  toggleRoleOverlayState();
+}
+
+function revealRoleInOverlay() {
+  roleOverlayRevealed = true;
+  $('role-overlay-title').textContent = myRole.name;
+  $('role-overlay-desc').textContent = myRole.desc;
+  $('role-overlay-sub').textContent = myRole.wolves ? '🐺 Tu manada: ' + myRole.wolves : '';
+  $('role-overlay-card').style.background = 'linear-gradient(135deg, #7f1d1d 0%, #b91c1c 100%)';
+  $('btn-confirm-role').style.display = 'block';
+}
+
+function toggleRoleOverlayState() {
+  roleOverlayRevealed = !roleOverlayRevealed;
   if (roleOverlayRevealed) {
     $('role-overlay-title').textContent = myRole.name;
     $('role-overlay-desc').textContent = myRole.desc;
@@ -471,6 +507,7 @@ function castVote(pid){
     <div id="role-overlay-sub" style="font-size:13px; color:#aaa; font-style:italic;">En secreto</div>
   </div>
   <button id="btn-confirm-role" class="success" onclick="confirmRoleSelection()" style="display:none; width:100%; max-width:400px; margin-top:20px; padding:12px; font-size:16px;">De acuerdo</button>
+  <video id="wolf-video" src="/lobo.mp4" playsinline style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:1200; background:#000;"></video>
 </div>
 
 </body>

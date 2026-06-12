@@ -1,495 +1,308 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🐺 Hombres Lobos Automático</title>
-  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { 
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #1f2937;
-      color: white;
-      min-height: 100vh;
-      padding: 1rem;
-    }
-    .container { max-width: 600px; margin: 0 auto; }
-    
-    .screen { display: none; }
-    .screen.active { display: block; }
-    
-    h1, h2, h3 { margin-bottom: 1rem; }
-    p { font-size: 14px; margin-bottom: 8px; color: #ccc; }
-    
-    input, select {
-      width: 100%;
-      padding: 12px;
-      margin-bottom: 10px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      font-size: 14px;
-      font-family: inherit;
-    }
-    
-    button {
-      width: 100%;
-      padding: 12px;
-      margin-bottom: 10px;
-      background: #3b82f6;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-    }
-    button:hover { background: #2563eb; }
-    button.success { background: #10b981; }
-    button.danger { background: #ef4444; }
-    
-    .card {
-      background: #374151;
-      padding: 1rem;
-      border-radius: 8px;
-      margin-bottom: 1rem;
-    }
-    
-    .role-card {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      padding: 2rem 1rem;
-      border-radius: 12px;
-      text-align: center;
-      margin-bottom: 2rem;
-    }
-    .role-card h3 { font-size: 28px; margin-bottom: 8px; }
-    
-    .narrator-box {
-      background: #fbbf24;
-      color: #111;
-      padding: 1.5rem;
-      border-radius: 8px;
-      margin-bottom: 1rem;
-      text-align: center;
-      font-weight: bold;
-      font-size: 16px;
-    }
-    
-    .logs {
-      background: #111;
-      padding: 10px;
-      border-radius: 6px;
-      max-height: 150px;
-      overflow-y: auto;
-      font-size: 11px;
-      line-height: 1.6;
-      margin-bottom: 1rem;
-      border: 1px solid #333;
-    }
-    
-    .role-selector {
-      background: #1f2937;
-      padding: 12px;
-      border-radius: 8px;
-      margin-bottom: 10px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border: 1px solid #374151;
-    }
-    
-    .role-selector input {
-      width: 60px;
-      margin: 0;
-      padding: 6px;
-    }
-    
-    .role-selector label {
-      font-size: 13px;
-      margin: 0;
-    }
-    
-    .code-box {
-      background: #4f46e5;
-      padding: 1.5rem;
-      border-radius: 8px;
-      text-align: center;
-      margin-bottom: 1rem;
-    }
-    .code-box h1 { font-size: 36px; margin: 0.5rem 0; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐺 Hombres Lobos de Castronegro</title>
+<script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:#1f2937; color:#fff; min-height:100vh; padding:1rem; }
+  .container { max-width:600px; margin:0 auto; }
+  .screen { display:none; } .screen.active { display:block; }
+  h1,h2,h3 { margin-bottom:1rem; }
+  p { font-size:14px; margin-bottom:8px; color:#ccc; }
+  input { width:100%; padding:12px; margin-bottom:10px; border:1px solid #555; border-radius:8px; font-size:16px; background:#111827; color:#fff; }
+  button { width:100%; padding:12px; margin-bottom:10px; background:#3b82f6; color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:500; cursor:pointer; }
+  button:hover { background:#2563eb; }
+  button:disabled { background:#4b5563; cursor:not-allowed; }
+  button.success { background:#10b981; } button.success:hover { background:#059669; }
+  button.danger { background:#ef4444; } button.danger:hover { background:#dc2626; }
+  button.option { background:#374151; text-align:left; }
+  button.option:hover { background:#4b5563; }
+  button.option.selected { background:#3b82f6; outline:2px solid #93c5fd; }
+  .card { background:#374151; padding:1rem; border-radius:8px; margin-bottom:1rem; }
+  .role-card { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); padding:1.5rem 1rem; border-radius:12px; text-align:center; margin-bottom:1rem; cursor:pointer; user-select:none; }
+  .role-card.wolf { background:linear-gradient(135deg,#7f1d1d 0%,#b91c1c 100%); }
+  .role-card h3 { font-size:24px; margin-bottom:6px; }
+  .role-card p { color:#eee; }
+  .narrator-box { background:#fbbf24; color:#111; padding:1.2rem; border-radius:8px; margin-bottom:1rem; text-align:center; font-weight:bold; font-size:16px; }
+  .info-box { background:#1e3a5f; border-left:4px solid #3b82f6; padding:10px 12px; border-radius:6px; margin-bottom:8px; font-size:14px; }
+  .action-panel { background:#312e81; padding:1rem; border-radius:10px; margin-bottom:1rem; border:2px solid #6366f1; }
+  .logs { background:#111; padding:10px; border-radius:8px; max-height:180px; overflow-y:auto; font-size:13px; margin-bottom:1rem; }
+  .logs div { padding:2px 0; border-bottom:1px solid #222; }
+  .player-row { display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:#374151; border-radius:6px; margin-bottom:6px; font-size:14px; }
+  .player-row.dead { opacity:.5; }
+  .player-row .tag { font-size:12px; color:#fbbf24; }
+  .role-select-row { display:flex; justify-content:space-between; align-items:center; padding:6px 8px; background:#374151; border-radius:6px; margin-bottom:4px; font-size:13px; }
+  .role-select-row .ctrl { display:flex; align-items:center; gap:8px; }
+  .role-select-row button { width:32px; padding:4px; margin:0; font-size:16px; }
+  .code-display { font-size:32px; letter-spacing:6px; text-align:center; background:#111; padding:12px; border-radius:8px; margin-bottom:1rem; font-weight:bold; color:#fbbf24; }
+  .badge { display:inline-block; background:#10b981; border-radius:10px; padding:2px 10px; font-size:12px; margin-left:6px; }
+  .vote-progress { text-align:center; font-size:13px; color:#fbbf24; margin-bottom:8px; }
+  .dead-banner { background:#7f1d1d; padding:10px; border-radius:8px; text-align:center; margin-bottom:1rem; }
+  .small { font-size:12px; color:#9ca3af; }
+  #toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:#ef4444; color:#fff; padding:10px 18px; border-radius:8px; display:none; z-index:99; }
+</style>
 </head>
 <body>
-  <div class="container">
-    
-    <div id="initialScreen" class="screen active">
-      <h1>🐺 Hombres Lobos</h1>
-      <button class="success" onclick="showCreateRoom()">👑 Crear sala (Narrador)</button>
-      <button onclick="showJoinRoom()">📱 Unirse (Jugador)</button>
+<div class="container">
+
+  <!-- INICIO -->
+  <div id="screen-home" class="screen active">
+    <h1>🐺 Hombres Lobos<br>de Castronegro</h1>
+    <div class="card">
+      <input id="inp-name" placeholder="Tu nombre" maxlength="20">
+      <button onclick="createRoom()">🌕 Crear sala</button>
+      <input id="inp-code" placeholder="Código de sala" maxlength="6" style="text-transform:uppercase">
+      <button class="success" onclick="joinRoom()">🚪 Unirse a sala</button>
     </div>
-
-    <div id="createRoomScreen" class="screen">
-      <h2>Crear sala</h2>
-      <input type="text" id="hostNameInput" placeholder="Tu nombre" autocomplete="off">
-      <label style="font-size: 14px; color: #ccc; margin-bottom: 6px; display: block;">Narrador:</label>
-      <select id="narratorModeInput" style="margin-bottom: 10px;">
-        <option value="screen">Pantalla del narrador</option>
-        <option value="host">Móvil del creador</option>
-      </select>
-      <button class="success" onclick="createRoom()">Crear</button>
-      <button class="danger" onclick="backToInitial()">Volver</button>
-    </div>
-
-    <div id="joinRoomScreen" class="screen">
-      <h2>Unirse a sala</h2>
-      <input type="text" id="codeInput" placeholder="Código" autocomplete="off">
-      <input type="text" id="playerNameInput" placeholder="Tu nombre" autocomplete="off">
-      <button class="success" onclick="joinRoom()">Entrar</button>
-      <button class="danger" onclick="backToInitial()">Volver</button>
-    </div>
-
-    <!-- PANTALLA DE SETUP: Número de jugadores -->
-    <div id="setupPlayersScreen" class="screen">
-      <h2>⚙️ Configura el juego</h2>
-      
-      <p>¿Cuántos jugadores?</p>
-      <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
-        <input type="range" id="playerCount" min="4" max="20" value="6" 
-               style="width: 100%; padding: 0; margin: 0;" 
-               oninput="updatePlayerCount()">
-      </div>
-      <p style="text-align: center; font-size: 16px; font-weight: bold; color: #10b981; margin: 0 0 1rem 0;">
-        <span id="playerCountDisplay">6</span> jugadores
-      </p>
-
-      <button class="success" onclick="nextToRoles()">Siguiente: elegir roles</button>
-      <button class="danger" onclick="backToInitial()">Cancelar</button>
-    </div>
-
-    <!-- PANTALLA DE SETUP: Seleccionar roles -->
-    <div id="setupRolesScreen" class="screen">
-      <h2>🎭 Elige los roles</h2>
-      <p style="font-size: 12px; color: #999; margin-bottom: 1rem;">Los datos vacíos = 0 (sin ese rol)</p>
-      
-      <div id="roleSelector" style="max-height: 400px; overflow-y: auto; margin-bottom: 1rem;"></div>
-
-      <div class="card" style="background: #1f2937; text-align: center; padding: 1rem;">
-        <p style="font-size: 12px; margin: 0 0 6px 0;">Aldeanos (se completan automáticamente):</p>
-        <p style="font-size: 18px; font-weight: bold; color: #10b981; margin: 0;" id="aldeanoCount">0</p>
-      </div>
-
-      <button class="success" onclick="confirmRoles()">✅ Confirmar roles</button>
-      <button onclick="backToPlayers()">Volver</button>
-    </div>
-
-    <!-- PANTALLA DEL ANFITRIÓN: Sala lista -->
-    <div id="hostSetupScreen" class="screen">
-      <h2>🎭 Narrador - Esperando jugadores</h2>
-      
-      <div class="code-box">
-        <p style="color: white; margin: 0 0 8px 0;">Código:</p>
-        <h1 id="codeDisplay">---</h1>
-        <button onclick="copyCode()" style="background: white; color: #4f46e5; margin-top: 8px; padding: 10px;">📋 Copiar</button>
-      </div>
-      <div id="narratorInfo" class="card" style="background: #111; text-align: left; padding: 1rem; margin-bottom: 1rem; font-size: 13px; color: #ddd;">
-        <strong>Narrador:</strong> Pantalla del narrador<br>
-        <strong>Configuración:</strong> Esperando roles...
-      </div>
-      
-      <h3 style="color: white; margin: 1rem 0 0.5rem 0;">Jugadores (<span id="pCount">0</span>)</h3>
-      <div id="playerList" class="card" style="max-height: 250px; overflow-y: auto;"></div>
-
-      <button class="success" id="startGameBtn" onclick="startGame()" style="display: none;">▶️ Comenzar partida</button>
-      <button class="danger" onclick="backToInitial()">🚪 Salir</button>
-    </div>
-
-    <!-- PANTALLA DEL NARRADOR: Juego en progreso -->
-    <div id="narratorScreen" class="screen">
-      <h2>🎭 Narrador Automático</h2>
-      <div id="narratorMessage" class="narrator-box">Preparando partida...</div>
-      
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-        <h3 style="margin: 0;">Día <span id="dayCount">1</span> <span id="phaseIcon">🌙</span></h3>
-        <p style="margin: 0; font-size: 12px;">🐺 <span id="wolfCount">0</span> | 👤 <span id="villagerCount">0</span></p>
-      </div>
-
-      <div id="playerStatus" class="card" style="max-height: 200px; overflow-y: auto;"></div>
-
-      <div class="logs">
-        <div id="narratorLogs"></div>
-      </div>
-
-      <button id="nextStepBtn" class="success" onclick="nextStep()">⏭️ Siguiente paso</button>
-      <button class="danger" onclick="newGame()">🔄 Nueva partida</button>
-    </div>
-
-    <!-- PANTALLA DEL JUGADOR -->
-    <div id="playerScreen" class="screen">
-      <h2>🐺 Castronegro</h2>
-      
-      <div class="role-card">
-        <p>Tu rol</p>
-        <h3 id="playerRole">?</h3>
-        <p id="playerDesc" style="font-size: 12px; margin: 0;"></p>
-      </div>
-
-      <div id="playerMessage" class="card" style="text-align: center;"></div>
-
-      <div class="logs">
-        <div id="playerLogs"></div>
-      </div>
-
-      <button class="danger" onclick="backToInitial()">🚪 Salir</button>
-    </div>
-
+    <p class="small">Narrador automático: el juego os guía por turnos en cada móvil siguiendo las reglas del Best Of. Si se te cierra la página, vuelve a entrar con el mismo nombre y código.</p>
   </div>
 
-  <script>
-    const socket = io();
-    const ROLES = {
-      aldeano: { name: 'Aldeano', desc: 'Sin poderes', team: 'village' },
-      lobo: { name: 'Hombre Lobo', desc: 'Mata cada noche', team: 'wolves' },
-      vidente: { name: 'Vidente', desc: 'Ve rol', team: 'village' },
-      bruja: { name: 'Bruja', desc: 'Protege/envenena', team: 'village' },
-      cazador: { name: 'Cazador', desc: 'Dispara al morir', team: 'village' },
-      pequenia: { name: 'Pequeña Niña', desc: 'Ve lobos', team: 'village' },
-      amor: { name: 'Enamorados', desc: 'Mueren juntos', team: 'village' },
-      zorro: { name: 'Zorro', desc: 'Busca lobos', team: 'village' },
-      flautista: { name: 'Flautista', desc: 'Hechiza', team: 'village' },
-      anciano: { name: 'Anciano', desc: 'Resiste ataque', team: 'village' },
-      domador: { name: 'Domador de Osos', desc: 'Gruñe de día', team: 'village' },
-      inquisidor: { name: 'Inquisidor', desc: 'Interroga', team: 'village' },
-      alcalde: { name: 'Alcalde', desc: 'Voto doble', team: 'village' },
-      justiciero: { name: 'Justiciero', desc: 'Muere por voto injusto', team: 'village' },
-      principe: { name: 'Príncipe', desc: 'Inmune a votos', team: 'village' },
-      picaro: { name: 'Pícaro', desc: 'Pierde si vidente lo ve', team: 'village' },
-      chivo: { name: 'Chivo Expiatorio', desc: 'Voto extra', team: 'village' },
-      pastor: { name: 'Pastor', desc: 'Conoce a otro', team: 'village' },
-      hermanas: { name: 'Dos Hermanas', desc: 'Se conocen (2 personas)', team: 'village' },
-      ninoSalvaje: { name: 'Niño Salvaje', desc: 'Elige modelo', team: 'village' },
-      loboFeroz: { name: 'Lobo Feroz', desc: 'Come dos veces', team: 'wolves' },
-    };
+  <!-- SALA DE ESPERA -->
+  <div id="screen-lobby" class="screen">
+    <h2>Sala de espera</h2>
+    <div class="code-display" id="lobby-code"></div>
+    <p style="text-align:center">Comparte el código para que se unan</p>
+    <div class="card">
+      <h3>Jugadores <span id="lobby-count"></span></h3>
+      <div id="lobby-players"></div>
+    </div>
+    <div id="host-setup" style="display:none">
+      <div class="card">
+        <h3>🃏 Reparto de cartas</h3>
+        <p class="small">Elige exactamente tantas cartas como jugadores. Si no añades aldeanos, no habrá: el narrador solo juega con los roles elegidos.</p>
+        <p class="vote-progress" id="cards-counter"></p>
+        <div id="role-selector"></div>
+      </div>
+      <button class="success" onclick="socket.emit('startGame')">🎮 Empezar partida</button>
+    </div>
+    <p id="lobby-wait" class="small" style="text-align:center"></p>
+  </div>
 
-    const ROLE_LIMITS = {
-      aldeano: 999, lobo: 999, vidente: 1, bruja: 1, cazador: 1, pequenia: 1,
-      amor: 1, zorro: 1, flautista: 1, anciano: 1, domador: 1, inquisidor: 1,
-      alcalde: 1, justiciero: 1, principe: 1, picaro: 1, chivo: 1, pastor: 1,
-      hermanas: 1, ninoSalvaje: 1, loboFeroz: 1,
-    };
+  <!-- PARTIDA -->
+  <div id="screen-game" class="screen">
+    <div id="dead-banner" class="dead-banner" style="display:none">💀 Estás muerto. Observa en silencio.</div>
+    <div class="role-card" id="role-card" onclick="toggleRole()">
+      <h3 id="role-name">🂠</h3>
+      <p id="role-desc">Toca para ver tu carta</p>
+      <p id="role-extra" class="small"></p>
+    </div>
+    <div class="narrator-box" id="narrator">🌙 La partida comienza...</div>
 
-    let currentRoom = null;
-    let currentPlayer = null;
-    let currentGame = null;
-    let isHost = false;
-    let narratorMode = 'screen';
-    let maxPlayers = 6;
-    let selectedRoles = {};
+    <div id="action-panel" class="action-panel" style="display:none">
+      <p id="action-prompt" style="color:#fff;font-weight:bold"></p>
+      <div id="action-options"></div>
+      <button class="success" id="action-confirm" onclick="confirmAction()" style="display:none">✅ Confirmar</button>
+      <button id="action-skip" onclick="skipAction()" style="display:none">⏭️ Pasar</button>
+    </div>
 
-    function showScreen(id) {
-      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-      document.getElementById(id).classList.add('active');
-    }
+    <div id="vote-panel" class="card" style="display:none">
+      <h3>🗳️ Votación</h3>
+      <p class="vote-progress" id="vote-progress"></p>
+      <div id="vote-options"></div>
+      <button class="danger" id="btn-close-vote" onclick="socket.emit('closeVote')" style="display:none">⚖️ Cerrar votación</button>
+    </div>
 
-    function backToInitial() {
-      showScreen('initialScreen');
-      currentRoom = null;
-    }
+    <div id="info-list"></div>
 
-    function backToPlayers() {
-      showScreen('setupPlayersScreen');
-    }
+    <div class="card">
+      <h3>Habitantes</h3>
+      <div id="game-players"></div>
+    </div>
 
-    function showCreateRoom() { showScreen('createRoomScreen'); }
-    function showJoinRoom() { showScreen('joinRoomScreen'); }
+    <div class="logs" id="logs"></div>
+    <button id="btn-skip-step" onclick="socket.emit('hostSkipStep')" style="display:none">⏭️ Saltar turno atascado (anfitrión)</button>
+    <div id="end-panel" style="display:none">
+      <button class="success" onclick="socket.emit('newGame')">🔄 Nueva partida (misma sala)</button>
+    </div>
+  </div>
 
-    function createRoom() {
-      const name = document.getElementById('hostNameInput').value.trim();
-      narratorMode = document.getElementById('narratorModeInput').value;
-      if (!name) return alert('Escribe tu nombre');
-      socket.emit('createRoom', { hostName: name, narratorMode });
-    }
+</div>
+<div id="toast"></div>
 
-    function joinRoom() {
-      const code = document.getElementById('codeInput').value.trim().toUpperCase();
-      const name = document.getElementById('playerNameInput').value.trim();
-      if (!code || !name) return alert('Completa los datos');
-      socket.emit('joinRoom', { code, playerName: name });
-    }
+<script>
+const socket = io();
+let state = null, myPid = null, isHost = false, myRole = null;
+let roleVisible = false;
+let currentAction = null, selectedChoices = [];
+let selectedRoles = {};
+let myVote = null;
 
-    function updatePlayerCount() {
-      maxPlayers = parseInt(document.getElementById('playerCount').value);
-      document.getElementById('playerCountDisplay').textContent = maxPlayers;
-    }
+const ROLE_INFO = {
+  aldeano:'Aldeano', lobo:'Hombre Lobo', vidente:'Vidente', bruja:'Bruja', cazador:'Cazador',
+  pequenia:'Niña Pequeña', amor:'Enamorados (x2)', zorro:'Zorro', flautista:'Flautista',
+  anciano:'Anciano', domador:'Domador de Osos', inquisidor:'Inquisidor', alcalde:'Alcalde',
+  justiciero:'Justiciero', principe:'Príncipe', picaro:'Pícaro', chivo:'Chivo Expiatorio',
+  pastor:'Pastor', hermanas:'Dos Hermanas (x2)', ninoSalvaje:'Niño Salvaje',
+  loboFeroz:'Lobo Feroz', hobreLoboAlbino:'Lobo Albino', infectoPadre:'Infecto Padre',
+};
+const DOUBLE_CARDS = ['amor','hermanas'];
+const WOLF_KEYS = ['lobo','loboFeroz','hobreLoboAlbino','infectoPadre'];
 
-    function nextToRoles() {
-      selectedRoles = {};
-      showScreen('setupRolesScreen');
-      renderRoleSelector();
-    }
+function $(id){ return document.getElementById(id); }
+function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); $(id).classList.add('active'); }
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',3500); }
 
-    function renderRoleSelector() {
-      const selector = document.getElementById('roleSelector');
-      selector.innerHTML = '';
-      
-      Object.entries(ROLES).forEach(([key, role]) => {
-        if (key === 'aldeano') return;
-        const div = document.createElement('div');
-        div.className = 'role-selector';
-        div.innerHTML = `
-          <label>${role.name}</label>
-          <input type="number" min="0" max="${ROLE_LIMITS[key]}" value="0" 
-                 onchange="updateRoleCount('${key}', this.value)">
-        `;
-        selector.appendChild(div);
-      });
-    }
+// ---- inicio ----
+function createRoom(){
+  const name = $('inp-name').value.trim();
+  if(!name) return toast('Pon tu nombre');
+  socket.emit('createRoom',{hostName:name});
+}
+function joinRoom(){
+  const name = $('inp-name').value.trim(), code = $('inp-code').value.trim().toUpperCase();
+  if(!name) return toast('Pon tu nombre');
+  if(!code) return toast('Pon el código de sala');
+  socket.emit('joinRoom',{code,playerName:name});
+}
 
-    function updateRoleCount(role, count) {
-      selectedRoles[role] = parseInt(count) || 0;
-      calculateAldeanos();
-    }
+socket.on('joined', d => { myPid=d.pid; isHost=d.isHost; });
+socket.on('errorMsg', toast);
 
-    function calculateAldeanos() {
-      let total = 0;
-      Object.values(selectedRoles).forEach(c => total += c);
-      const aldeanos = Math.max(0, maxPlayers - total);
-      document.getElementById('aldeanoCount').textContent = aldeanos;
-    }
+// ---- estado ----
+socket.on('state', s => {
+  state = s;
+  if(s.phase==='lobby') renderLobby(); else renderGame();
+});
 
-    function confirmRoles() {
-      calculateAldeanos();
-      const totalRoles = Object.values(selectedRoles).reduce((a, b) => a + b, 0);
-      if (totalRoles > maxPlayers) {
-        return alert('Has elegido más roles de los jugadores disponibles. Reduce algunos roles.');
-      }
-      selectedRoles['aldeano'] = Math.max(0, maxPlayers - totalRoles);
-      socket.emit('setupGame', { code: currentRoom, maxPlayers, selectedRoles, narratorMode });
-    }
+function renderLobby(){
+  show('screen-lobby');
+  $('lobby-code').textContent = state.code;
+  $('lobby-count').textContent = `(${state.players.length})`;
+  $('lobby-players').innerHTML = state.players.map(p =>
+    `<div class="player-row"><span>${esc(p.name)}${p.pid===state.hostPid?' 👑':''}</span><span class="badge">${p.connected?'🟢':'🔌'}</span></div>`).join('');
+  isHost = myPid === state.hostPid;
+  $('host-setup').style.display = isHost ? 'block' : 'none';
+  $('lobby-wait').textContent = isHost ? '' : 'Esperando a que el anfitrión configure y empiece...';
+  if(isHost) renderRoleSelector();
+  myRole=null; roleVisible=false; $('info-list').innerHTML=''; $('end-panel').style.display='none';
+  $('narrator').textContent='🌙 La partida comienza...';
+}
 
-    function copyCode() {
-      const code = document.getElementById('codeDisplay').textContent;
-      navigator.clipboard.writeText(code).then(() => alert('✅ Copiado'));
-    }
+function esc(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
-    function startGame() {
-      socket.emit('startGame', { code: currentRoom });
-    }
+function renderRoleSelector(){
+  selectedRoles = state.selectedRoles || {};
+  $('role-selector').innerHTML = Object.keys(ROLE_INFO).map(r => {
+    const c = selectedRoles[r]||0;
+    return `<div class="role-select-row"><span>${ROLE_INFO[r]}</span>
+      <div class="ctrl"><button onclick="chgRole('${r}',-1)">−</button><b>${c}</b><button onclick="chgRole('${r}',1)">+</button></div></div>`;
+  }).join('');
+  updateCounter();
+}
+function cardsOf(r,c){ return DOUBLE_CARDS.includes(r) ? c*2 : c; }
+function totalSel(){ return Object.entries(selectedRoles).reduce((t,[r,c])=>t+cardsOf(r,c||0),0); }
+function chgRole(r,d){
+  selectedRoles[r] = Math.max(0,(selectedRoles[r]||0)+d);
+  socket.emit('setupGame',{selectedRoles, maxPlayers: Math.max(state.players.length, 8)});
+}
+function updateCounter(){
+  const t = totalSel(), n = state.players.length;
+  const wolves = Object.entries(selectedRoles).filter(([r,c])=>WOLF_KEYS.includes(r)&&c>0).reduce((a,[r,c])=>a+c,0);
+  $('cards-counter').innerHTML = `Cartas: <b>${t}/${n}</b> jugadores · Lobos: ${wolves} ` + (t===n?'✅':(t>n?'⚠️ sobran cartas':'(lo que falte serán aldeanos)'));
+}
 
-    function nextStep() {
-      socket.emit('nextNightStep', { code: currentRoom });
-    }
+// ---- partida ----
+socket.on('yourRole', r => {
+  myRole = r; roleVisible=false;
+  $('role-name').textContent='🂠';
+  $('role-desc').textContent='Toca para ver tu carta en secreto';
+  $('role-extra').textContent='';
+  $('role-card').classList.remove('wolf');
+});
+function toggleRole(){
+  if(!myRole) return;
+  roleVisible = !roleVisible;
+  if(roleVisible){
+    $('role-name').textContent = myRole.name;
+    $('role-desc').textContent = myRole.desc;
+    $('role-extra').textContent = myRole.wolves ? '🐺 Tu manada: '+myRole.wolves : '';
+    $('role-card').classList.toggle('wolf', myRole.team==='wolves');
+  } else {
+    $('role-name').textContent='🂠';
+    $('role-desc').textContent='Toca para ver tu carta en secreto';
+    $('role-extra').textContent='';
+    $('role-card').classList.remove('wolf');
+  }
+}
 
-    function newGame() {
-      socket.emit('newGame', { code: currentRoom });
-    }
+socket.on('narrator', d => { $('narrator').textContent = d.message; });
+socket.on('info', d => {
+  const div = document.createElement('div');
+  div.className='info-box'; div.textContent=d.message;
+  $('info-list').prepend(div);
+  if(navigator.vibrate) navigator.vibrate(120);
+});
 
-    socket.on('roomCreated', (data) => {
-      currentRoom = data.code;
-      narratorMode = data.narratorMode || narratorMode;
-      isHost = true;
-      showScreen('setupPlayersScreen');
-      updatePlayerCount();
-    });
+socket.on('actionRequest', d => {
+  currentAction = d; selectedChoices = [];
+  $('action-prompt').textContent = d.prompt;
+  $('action-options').innerHTML = d.options.map(o =>
+    `<button class="option" data-pid="${o.pid}" onclick="pickOption('${o.pid}')">${esc(o.name)}</button>`).join('');
+  $('action-confirm').style.display = 'none';
+  $('action-skip').style.display = d.canSkip ? 'block' : 'none';
+  $('action-panel').style.display = 'block';
+  if(navigator.vibrate) navigator.vibrate([100,50,100]);
+  window.scrollTo({top:0,behavior:'smooth'});
+});
 
-    socket.on('roomJoined', (data) => {
-      currentRoom = data.code;
-      showScreen('playerScreen');
-    });
+function pickOption(pid){
+  const need = currentAction.count || 1;
+  if(selectedChoices.includes(pid)) selectedChoices = selectedChoices.filter(x=>x!==pid);
+  else { selectedChoices.push(pid); if(selectedChoices.length>need) selectedChoices.shift(); }
+  document.querySelectorAll('#action-options .option').forEach(b =>
+    b.classList.toggle('selected', selectedChoices.includes(b.dataset.pid)));
+  $('action-confirm').style.display = selectedChoices.length===need ? 'block' : 'none';
+}
+function confirmAction(){
+  socket.emit('action',{choices:selectedChoices});
+  $('action-panel').style.display='none'; currentAction=null;
+}
+function skipAction(){
+  socket.emit('action',{choices:['skip']});
+  $('action-panel').style.display='none'; currentAction=null;
+}
 
-    socket.on('gameReady', (room) => {
-      currentGame = room;
-      narratorMode = room.narratorMode || narratorMode;
-      showScreen('hostSetupScreen');
-      document.getElementById('startGameBtn').style.display = 'block';
-      document.getElementById('codeDisplay').textContent = currentRoom;
-      document.getElementById('pCount').textContent = room.players.length;
-      renderHostInfo(room);
-    });
+function renderGame(){
+  show('screen-game');
+  const me = state.players.find(p=>p.pid===myPid);
+  const amDead = me && !me.alive && state.phase!=='ended';
+  $('dead-banner').style.display = amDead ? 'block' : 'none';
 
-    socket.on('updateGame', (game) => {
-      currentGame = game;
-      const player = game.players.find(p => p.id === socket.id);
-      currentPlayer = player;
+  $('game-players').innerHTML = state.players.map(p => {
+    const role = p.roleName ? ` <span class="tag">→ ${p.roleName}</span>` : (p.revealedPrince?' <span class="tag">👑 Príncipe</span>':'');
+    return `<div class="player-row ${p.alive?'':'dead'}"><span>${p.alive?'🙂':'💀'} ${esc(p.name)}${p.pid===state.hostPid?' 👑':''}${role}</span><span>${p.connected?'':'🔌'}</span></div>`;
+  }).join('');
 
-      document.getElementById('codeDisplay').textContent = currentRoom;
-      document.getElementById('pCount').textContent = game.players.length;
-      
-      if (isHost && !game.gameStarted) {
-        document.getElementById('playerList').innerHTML = game.players
-          .map(p => `<div style="padding: 8px; border-bottom: 1px solid #555;">
-            ${p.name} - ${ROLES[p.role]?.name || p.role}
-          </div>`).join('');
-      }
+  $('logs').innerHTML = state.logs.map(l=>`<div>${l}</div>`).join('');
+  $('logs').scrollTop = $('logs').scrollHeight;
 
-      if (game.gameStarted) {
-        if (isHost) updateNarratorUI(game);
-        else if (player) updatePlayerUI(game, player);
-      }
-    });
+  const vp = $('vote-panel');
+  if(state.phase==='vote' && state.voteInfo){
+    vp.style.display='block';
+    const vi = state.voteInfo;
+    $('vote-progress').innerHTML = `Han votado <b>${vi.voted}/${vi.total}</b>` + (vi.pending.length?`<br><span class="small">Faltan: ${vi.pending.map(esc).join(', ')}</span>`:'');
+    if(me && me.alive){
+      $('vote-options').innerHTML = state.players.filter(p=>p.alive).map(p =>
+        `<button class="option" data-pid="${p.pid}" onclick="castVote('${p.pid}')">🗳️ ${esc(p.name)}</button>`).join('');
+      document.querySelectorAll('#vote-options .option').forEach(b => b.classList.toggle('selected', b.dataset.pid===myVote));
+    } else $('vote-options').innerHTML = '<p class="small">Los muertos no votan.</p>';
+    const canClose = (vi.alcaldePid && vi.alcaldePid===myPid) || (!vi.alcaldePid && myPid===state.hostPid);
+    $('btn-close-vote').style.display = canClose ? 'block' : 'none';
+    $('btn-close-vote').disabled = !vi.allVoted;
+    $('btn-close-vote').textContent = vi.allVoted ? '⚖️ Cerrar votación y ejecutar' : `⚖️ Esperando votos (${vi.voted}/${vi.total})`;
+  } else { vp.style.display='none'; myVote=null; }
 
-    socket.on('gameStarted', (game) => {
-      currentGame = game;
-      if (isHost) showScreen('narratorScreen');
-    });
+  $('end-panel').style.display = state.phase==='ended' && myPid===state.hostPid ? 'block' : 'none';
+  $('btn-skip-step').style.display = (myPid===state.hostPid && state.phase==='night') ? 'block' : 'none';
+}
 
-    socket.on('narratorGuide', (data) => {
-      document.getElementById('narratorMessage').textContent = data.message;
-      if (isHost && currentGame?.narratorMode === 'host') {
-        speakNarration(data.message);
-      }
-    });
-
-    function updateNarratorUI(game) {
-      const alive = game.players.filter(p => p.alive);
-      const wolves = alive.filter(p => ROLES[p.role]?.team === 'wolves');
-
-      document.getElementById('dayCount').textContent = game.day;
-      document.getElementById('phaseIcon').textContent = game.isNight ? '🌙' : '☀️';
-      document.getElementById('wolfCount').textContent = wolves.length;
-      document.getElementById('villagerCount').textContent = alive.length - wolves.length;
-
-      document.getElementById('playerStatus').innerHTML = game.players.map(p => `
-        <div style="padding: 8px; border-left: 3px solid ${!p.alive ? '#ef4444' : '#3b82f6'}; opacity: ${!p.alive ? '0.5' : '1'};">
-          ${p.name} - ${ROLES[p.role]?.name || p.role} ${!p.alive ? '💀' : ''}
-        </div>
-      `).join('');
-
-      document.getElementById('narratorLogs').innerHTML = game.logs.slice(-8).map(log => `<div>${log}</div>`).join('');
-      renderHostInfo(game);
-    }
-
-    function updatePlayerUI(game, player) {
-      document.getElementById('playerRole').textContent = ROLES[player.role]?.name || '?';
-      document.getElementById('playerDesc').textContent = ROLES[player.role]?.desc || '';
-
-      let message = !player.alive ? '💀 Estás muerto.' : game.isNight ? '🌙 Es noche.' : '☀️ Es día.';
-      document.getElementById('playerMessage').innerHTML = `<p style="margin: 0;">${message}</p>`;
-      document.getElementById('playerLogs').innerHTML = game.logs.slice(-8).map(log => `<div>${log}</div>`).join('');
-    }
-
-    function renderHostInfo(game) {
-      const modeLabel = game.narratorMode === 'host' ? 'Móvil del creador' : 'Pantalla del narrador';
-      const selectedText = Object.entries(game.selectedRoles || {})
-        .filter(([_, count]) => count > 0)
-        .map(([role, count]) => `${count} ${ROLES[role]?.name || role}${count > 1 ? 's' : ''}`)
-        .join(', ');
-      const roleText = selectedText || 'Aldeanos automáticos';
-      const hint = game.narratorHint || `Configuración: ${game.maxPlayers} jugadores.`;
-      const infoBox = document.getElementById('narratorInfo');
-      if (infoBox) {
-        infoBox.innerHTML = `<strong>Narrador:</strong> ${modeLabel}<br><strong>Roles:</strong> ${roleText}<br><strong>Adaptación:</strong> ${hint}`;
-      }
-    }
-
-    function speakNarration(message) {
-      if (!window.speechSynthesis) return;
-      const utterance = new SpeechSynthesisUtterance(message);
-      utterance.lang = 'es-ES';
-      speechSynthesis.cancel();
-      speechSynthesis.speak(utterance);
-    }
-
-    socket.on('error', (msg) => alert('❌ ' + msg));
-  </script>
+function castVote(pid){
+  myVote = pid;
+  socket.emit('vote',{targetPid:pid});
+}
+</script>
 </body>
 </html>

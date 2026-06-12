@@ -21,7 +21,6 @@ const ROLES = {
   anciano:        { name: 'Anciano', desc: 'Sobrevive al primer ataque de los lobos. Si el pueblo lo mata, todos pierden sus poderes.', team: 'village' },
   domador:        { name: 'Domador de Osos', desc: 'Si amanece junto a un lobo, el oso gruñe.', team: 'village' },
   inquisidor:     { name: 'Inquisidor', desc: 'Cada noche interroga: descubre el bando de un jugador.', team: 'village' },
-  alcalde:        { name: 'Alcalde', desc: 'Su voto vale doble y decide cuándo se cierra la votación.', team: 'village' },
   justiciero:     { name: 'Justiciero', desc: 'Aldeano de honor. Si el pueblo lo ejecuta, su muerte pesa en la conciencia.', team: 'village' },
   principe:       { name: 'Príncipe', desc: 'La primera vez que lo votan, revela su carta y se salva.', team: 'village' },
   picaro:         { name: 'Pícaro', desc: 'Si la Vidente lo mira, muere al amanecer.', team: 'village' },
@@ -34,10 +33,11 @@ const ROLES = {
   infectoPadre:   { name: 'Infecto Padre', desc: 'Una vez por partida puede infectar a la víctima: sobrevive convertida en lobo.', team: 'wolves' },
 };
 
+// Límites según la caja del Best Of: máximo 1 de cada, salvo 3 Lobos Comunes y aldeanos libres
 const ROLE_LIMITS = {
-  aldeano: 999, lobo: 999,
+  aldeano: 999, lobo: 3,
   vidente: 1, bruja: 1, cazador: 1, pequenia: 1, amor: 1, zorro: 1, flautista: 1,
-  anciano: 1, domador: 1, inquisidor: 1, alcalde: 1, justiciero: 1, principe: 1,
+  anciano: 1, domador: 1, inquisidor: 1, justiciero: 1, principe: 1,
   picaro: 1, chivo: 1, pastor: 1, hermanas: 1, ninoSalvaje: 1,
   loboFeroz: 1, hobreLoboAlbino: 1, infectoPadre: 1,
 };
@@ -85,6 +85,7 @@ function publicState(room) {
       role: p.alive ? null : p.role, // solo se revela al morir
       roleName: p.alive ? null : (ROLES[p.role]?.name || p.role),
       revealedPrince: p.revealedPrince || false,
+      isAlcalde: p.isAlcalde || false,
     })),
     voteInfo: room.phase === 'vote' ? voteProgress(room) : null,
     winner: room.winner || null,
@@ -124,6 +125,20 @@ function assignRoles(room) {
     lovers[0].lover = lovers[1].pid;
     lovers[1].lover = lovers[0].pid;
   }
+  // el Alcalde es un cargo público sorteado, independiente de la carta
+  room.players.forEach(p => { p.isAlcalde = false; });
+  const alc = room.players[Math.floor(Math.random() * room.players.length)];
+  alc.isAlcalde = true;
+}
+
+function currentAlcalde(room) { return alive(room).find(p => p.isAlcalde) || null; }
+
+function passAlcalde(room) {
+  const candidates = alive(room);
+  if (!candidates.length) return;
+  const next = candidates[Math.floor(Math.random() * candidates.length)];
+  next.isAlcalde = true;
+  announce(room, `⚖️ El cargo de Alcalde pasa a ${next.name}.`);
 }
 
 // ============ MOTOR DE NOCHE ============
@@ -395,7 +410,7 @@ function handleAction(room, player, data) {
     case 'alcalde_empate': {
       const t = byPid(room, first[0]);
       if (t && t.alive) {
-        announce(room, `⚖️ El Alcalde rompe el empate: ${t.name} es ejecutado.`);
+        announce(room, `⚖️ El Alcalde rompe el empate.`);
         executePlayer(room, t);
       }
       return afterDeaths(room);
@@ -457,6 +472,10 @@ function killPlayer(room, p, cause) {
   }
   room.deathChain = room.deathChain || [];
   room.deathChain.push(p);
+  if (p.isAlcalde) {
+    p.isAlcalde = false;
+    if (room.phase !== 'ended') passAlcalde(room);
+  }
 }
 
 function afterDeaths(room) {
@@ -519,7 +538,8 @@ function startVote(room) {
   room.phase = 'vote';
   room.votes = {};
   room.voteClosed = false;
-  const alc = byRole(room, 'alcalde')[0];
+  if (!currentAlcalde(room)) passAlcalde(room);
+  const alc = currentAlcalde(room);
   announce(room, `🗳️ Debate y votación. ${alc ? 'El Alcalde cerrará la votación cuando todos hayan votado.' : 'La votación se cierra cuando todos voten.'}`);
   broadcast(room);
 }
@@ -532,7 +552,7 @@ function voteProgress(room) {
     voted: voted.length,
     pending: voters.filter(p => !room.votes[p.pid]).map(p => p.name),
     allVoted: voted.length === voters.length,
-    alcaldePid: byRole(room, 'alcalde')[0]?.pid || null,
+    alcaldePid: currentAlcalde(room)?.pid || null,
   };
 }
 
@@ -543,7 +563,7 @@ function closeVote(room) {
   alive(room).forEach(p => {
     const t = room.votes[p.pid];
     if (!t) return;
-    const weight = p.role === 'alcalde' ? 2 : 1;
+    const weight = p.isAlcalde ? 2 : 1;
     tally[t] = (tally[t] || 0) + weight;
   });
   const max = Math.max(...Object.values(tally), 0);
@@ -560,7 +580,7 @@ function closeVote(room) {
       executePlayer(room, chivo);
       return afterDeaths(room);
     }
-    const alc = byRole(room, 'alcalde')[0];
+    const alc = currentAlcalde(room);
     if (alc) {
       const tied = top.map(pid => byPid(room, pid)).filter(Boolean);
       announce(room, `⚖️ Empate entre ${names(tied)}. El Alcalde decide.`);
@@ -701,6 +721,7 @@ io.on('connection', (socket) => {
       sendTo(room, p, 'yourRole', { role: p.role, ...ROLES[p.role], wolves: isWolf(p) ? names(room.players.filter(x => isWolf(x))) : null });
     });
     announce(room, `🎮 Comienza la partida con ${room.players.length} habitantes.`);
+    announce(room, `⚖️ El azar designa Alcalde a ${room.players.find(p => p.isAlcalde).name}: su voto vale doble y cierra las votaciones.`);
     startNight(room);
   });
 
@@ -717,14 +738,13 @@ io.on('connection', (socket) => {
     room.votes[p.pid] = t.pid;
     broadcast(room);
     const prog = voteProgress(room);
-    const alc = byRole(room, 'alcalde')[0];
-    if (prog.allVoted && !alc) closeVote(room); // sin alcalde: cierre automático
+    if (prog.allVoted && !currentAlcalde(room)) closeVote(room); // sin alcalde: cierre automático
   });
 
   socket.on('closeVote', () => {
     const room = myRoom, p = me();
     if (!room || !p || room.phase !== 'vote' || room.voteClosed) return;
-    const alc = byRole(room, 'alcalde')[0];
+    const alc = currentAlcalde(room);
     const canClose = alc ? p.pid === alc.pid : p.pid === room.hostPid;
     if (!canClose) return;
     if (!voteProgress(room).allVoted) return socket.emit('errorMsg', 'Aún no han votado todos los vivos');
@@ -748,7 +768,7 @@ io.on('connection', (socket) => {
       infectoUsed: false, wolfDiedEver: false, villagePowersLost: false, ancianoHit: false,
       votes: {}, pending: null, deathChain: [],
     });
-    room.players.forEach(p => Object.assign(p, { alive: true, role: 'aldeano', becameWolf: false, charmed: false, lover: null, model: null, revealedPrince: false, shotFired: false }));
+    room.players.forEach(p => Object.assign(p, { alive: true, role: 'aldeano', becameWolf: false, charmed: false, lover: null, model: null, revealedPrince: false, shotFired: false, isAlcalde: false }));
     broadcast(room);
   });
 

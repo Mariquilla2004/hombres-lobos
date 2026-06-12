@@ -133,11 +133,14 @@ let myVote = null;
 const ROLE_INFO = {
   aldeano:'Aldeano', lobo:'Hombre Lobo', vidente:'Vidente', bruja:'Bruja', cazador:'Cazador',
   pequenia:'Niña Pequeña', amor:'Enamorados (x2)', zorro:'Zorro', flautista:'Flautista',
-  anciano:'Anciano', domador:'Domador de Osos', inquisidor:'Inquisidor', alcalde:'Alcalde',
+  anciano:'Anciano', domador:'Domador de Osos', inquisidor:'Inquisidor',
   justiciero:'Justiciero', principe:'Príncipe', picaro:'Pícaro', chivo:'Chivo Expiatorio',
   pastor:'Pastor', hermanas:'Dos Hermanas (x2)', ninoSalvaje:'Niño Salvaje',
   loboFeroz:'Lobo Feroz', hobreLoboAlbino:'Lobo Albino', infectoPadre:'Infecto Padre',
 };
+// máximos del reglamento (Best Of): 1 de cada salvo 3 Lobos Comunes y aldeanos libres
+const ROLE_MAX = { aldeano: 99, lobo: 3 };
+function maxOf(r){ return ROLE_MAX[r] ?? 1; }
 const DOUBLE_CARDS = ['amor','hermanas'];
 const WOLF_KEYS = ['lobo','loboFeroz','hobreLoboAlbino','infectoPadre'];
 
@@ -187,15 +190,15 @@ function renderRoleSelector(){
   selectedRoles = state.selectedRoles || {};
   $('role-selector').innerHTML = Object.keys(ROLE_INFO).map(r => {
     const c = selectedRoles[r]||0;
-    return `<div class="role-select-row"><span>${ROLE_INFO[r]}</span>
-      <div class="ctrl"><button onclick="chgRole('${r}',-1)">−</button><b>${c}</b><button onclick="chgRole('${r}',1)">+</button></div></div>`;
+    return `<div class="role-select-row"><span>${ROLE_INFO[r]}${maxOf(r)>1?` <span class="small">(máx ${maxOf(r)>10?'∞':maxOf(r)})</span>`:''}</span>
+      <div class="ctrl"><button onclick="chgRole('${r}',-1)" ${c<=0?'disabled':''}>−</button><b>${c}</b><button onclick="chgRole('${r}',1)" ${c>=maxOf(r)?'disabled':''}>+</button></div></div>`;
   }).join('');
   updateCounter();
 }
 function cardsOf(r,c){ return DOUBLE_CARDS.includes(r) ? c*2 : c; }
 function totalSel(){ return Object.entries(selectedRoles).reduce((t,[r,c])=>t+cardsOf(r,c||0),0); }
 function chgRole(r,d){
-  selectedRoles[r] = Math.max(0,(selectedRoles[r]||0)+d);
+  selectedRoles[r] = Math.min(maxOf(r), Math.max(0,(selectedRoles[r]||0)+d));
   socket.emit('setupGame',{selectedRoles, maxPlayers: Math.max(state.players.length, 8)});
 }
 function updateCounter(){
@@ -273,7 +276,8 @@ function renderGame(){
 
   $('game-players').innerHTML = state.players.map(p => {
     const role = p.roleName ? ` <span class="tag">→ ${p.roleName}</span>` : (p.revealedPrince?' <span class="tag">👑 Príncipe</span>':'');
-    return `<div class="player-row ${p.alive?'':'dead'}"><span>${p.alive?'🙂':'💀'} ${esc(p.name)}${p.pid===state.hostPid?' 👑':''}${role}</span><span>${p.connected?'':'🔌'}</span></div>`;
+    const alc = p.isAlcalde ? ' ⚖️' : '';
+    return `<div class="player-row ${p.alive?'':'dead'}"><span>${p.alive?'🙂':'💀'} ${esc(p.name)}${p.pid===state.hostPid?' 👑':''}${alc}${role}</span><span>${p.connected?'':'🔌'}</span></div>`;
   }).join('');
 
   $('logs').innerHTML = state.logs.map(l=>`<div>${l}</div>`).join('');

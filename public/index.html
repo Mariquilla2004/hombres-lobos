@@ -131,6 +131,11 @@
     <div id="createRoomScreen" class="screen">
       <h2>Crear sala</h2>
       <input type="text" id="hostNameInput" placeholder="Tu nombre" autocomplete="off">
+      <label style="font-size: 14px; color: #ccc; margin-bottom: 6px; display: block;">Narrador:</label>
+      <select id="narratorModeInput" style="margin-bottom: 10px;">
+        <option value="screen">Pantalla del narrador</option>
+        <option value="host">Móvil del creador</option>
+      </select>
       <button class="success" onclick="createRoom()">Crear</button>
       <button class="danger" onclick="backToInitial()">Volver</button>
     </div>
@@ -186,6 +191,10 @@
         <h1 id="codeDisplay">---</h1>
         <button onclick="copyCode()" style="background: white; color: #4f46e5; margin-top: 8px; padding: 10px;">📋 Copiar</button>
       </div>
+      <div id="narratorInfo" class="card" style="background: #111; text-align: left; padding: 1rem; margin-bottom: 1rem; font-size: 13px; color: #ddd;">
+        <strong>Narrador:</strong> Pantalla del narrador<br>
+        <strong>Configuración:</strong> Esperando roles...
+      </div>
       
       <h3 style="color: white; margin: 1rem 0 0.5rem 0;">Jugadores (<span id="pCount">0</span>)</h3>
       <div id="playerList" class="card" style="max-height: 250px; overflow-y: auto;"></div>
@@ -238,27 +247,27 @@
   <script>
     const socket = io();
     const ROLES = {
-      aldeano: { name: 'Aldeano', desc: 'Sin poderes' },
-      lobo: { name: 'Hombre Lobo', desc: 'Mata cada noche' },
-      vidente: { name: 'Vidente', desc: 'Ve rol' },
-      bruja: { name: 'Bruja', desc: 'Protege/envenena' },
-      cazador: { name: 'Cazador', desc: 'Dispara al morir' },
-      pequenia: { name: 'Pequeña Niña', desc: 'Ve lobos' },
-      amor: { name: 'Enamorados', desc: 'Mueren juntos' },
-      zorro: { name: 'Zorro', desc: 'Busca lobos' },
-      flautista: { name: 'Flautista', desc: 'Hechiza' },
-      anciano: { name: 'Anciano', desc: 'Resiste ataque' },
-      domador: { name: 'Domador de Osos', desc: 'Gruñe de día' },
-      inquisidor: { name: 'Inquisidor', desc: 'Interroga' },
-      alcalde: { name: 'Alcalde', desc: 'Voto doble' },
-      justiciero: { name: 'Justiciero', desc: 'Muere por voto injusto' },
-      principe: { name: 'Príncipe', desc: 'Inmune a votos' },
-      picaro: { name: 'Pícaro', desc: 'Pierde si vidente lo ve' },
-      chivo: { name: 'Chivo Expiatorio', desc: 'Voto extra' },
-      pastor: { name: 'Pastor', desc: 'Conoce a otro' },
-      hermanas: { name: 'Dos Hermanas', desc: 'Se conocen (2 personas)' },
-      ninoSalvaje: { name: 'Niño Salvaje', desc: 'Elige modelo' },
-      loboFeroz: { name: 'Lobo Feroz', desc: 'Come dos veces' },
+      aldeano: { name: 'Aldeano', desc: 'Sin poderes', team: 'village' },
+      lobo: { name: 'Hombre Lobo', desc: 'Mata cada noche', team: 'wolves' },
+      vidente: { name: 'Vidente', desc: 'Ve rol', team: 'village' },
+      bruja: { name: 'Bruja', desc: 'Protege/envenena', team: 'village' },
+      cazador: { name: 'Cazador', desc: 'Dispara al morir', team: 'village' },
+      pequenia: { name: 'Pequeña Niña', desc: 'Ve lobos', team: 'village' },
+      amor: { name: 'Enamorados', desc: 'Mueren juntos', team: 'village' },
+      zorro: { name: 'Zorro', desc: 'Busca lobos', team: 'village' },
+      flautista: { name: 'Flautista', desc: 'Hechiza', team: 'village' },
+      anciano: { name: 'Anciano', desc: 'Resiste ataque', team: 'village' },
+      domador: { name: 'Domador de Osos', desc: 'Gruñe de día', team: 'village' },
+      inquisidor: { name: 'Inquisidor', desc: 'Interroga', team: 'village' },
+      alcalde: { name: 'Alcalde', desc: 'Voto doble', team: 'village' },
+      justiciero: { name: 'Justiciero', desc: 'Muere por voto injusto', team: 'village' },
+      principe: { name: 'Príncipe', desc: 'Inmune a votos', team: 'village' },
+      picaro: { name: 'Pícaro', desc: 'Pierde si vidente lo ve', team: 'village' },
+      chivo: { name: 'Chivo Expiatorio', desc: 'Voto extra', team: 'village' },
+      pastor: { name: 'Pastor', desc: 'Conoce a otro', team: 'village' },
+      hermanas: { name: 'Dos Hermanas', desc: 'Se conocen (2 personas)', team: 'village' },
+      ninoSalvaje: { name: 'Niño Salvaje', desc: 'Elige modelo', team: 'village' },
+      loboFeroz: { name: 'Lobo Feroz', desc: 'Come dos veces', team: 'wolves' },
     };
 
     const ROLE_LIMITS = {
@@ -272,6 +281,7 @@
     let currentPlayer = null;
     let currentGame = null;
     let isHost = false;
+    let narratorMode = 'screen';
     let maxPlayers = 6;
     let selectedRoles = {};
 
@@ -294,8 +304,9 @@
 
     function createRoom() {
       const name = document.getElementById('hostNameInput').value.trim();
+      narratorMode = document.getElementById('narratorModeInput').value;
       if (!name) return alert('Escribe tu nombre');
-      socket.emit('createRoom', { hostName: name });
+      socket.emit('createRoom', { hostName: name, narratorMode });
     }
 
     function joinRoom() {
@@ -347,8 +358,12 @@
 
     function confirmRoles() {
       calculateAldeanos();
-      selectedRoles['aldeano'] = Math.max(0, maxPlayers - Object.values(selectedRoles).reduce((a, b) => a + b, 0));
-      socket.emit('setupGame', { code: currentRoom, maxPlayers, selectedRoles });
+      const totalRoles = Object.values(selectedRoles).reduce((a, b) => a + b, 0);
+      if (totalRoles > maxPlayers) {
+        return alert('Has elegido más roles de los jugadores disponibles. Reduce algunos roles.');
+      }
+      selectedRoles['aldeano'] = Math.max(0, maxPlayers - totalRoles);
+      socket.emit('setupGame', { code: currentRoom, maxPlayers, selectedRoles, narratorMode });
     }
 
     function copyCode() {
@@ -370,6 +385,7 @@
 
     socket.on('roomCreated', (data) => {
       currentRoom = data.code;
+      narratorMode = data.narratorMode || narratorMode;
       isHost = true;
       showScreen('setupPlayersScreen');
       updatePlayerCount();
@@ -380,9 +396,14 @@
       showScreen('playerScreen');
     });
 
-    socket.on('gameReady', () => {
+    socket.on('gameReady', (room) => {
+      currentGame = room;
+      narratorMode = room.narratorMode || narratorMode;
       showScreen('hostSetupScreen');
       document.getElementById('startGameBtn').style.display = 'block';
+      document.getElementById('codeDisplay').textContent = currentRoom;
+      document.getElementById('pCount').textContent = room.players.length;
+      renderHostInfo(room);
     });
 
     socket.on('updateGame', (game) => {
@@ -413,6 +434,9 @@
 
     socket.on('narratorGuide', (data) => {
       document.getElementById('narratorMessage').textContent = data.message;
+      if (isHost && currentGame?.narratorMode === 'host') {
+        speakNarration(data.message);
+      }
     });
 
     function updateNarratorUI(game) {
@@ -431,6 +455,7 @@
       `).join('');
 
       document.getElementById('narratorLogs').innerHTML = game.logs.slice(-8).map(log => `<div>${log}</div>`).join('');
+      renderHostInfo(game);
     }
 
     function updatePlayerUI(game, player) {
@@ -440,6 +465,28 @@
       let message = !player.alive ? '💀 Estás muerto.' : game.isNight ? '🌙 Es noche.' : '☀️ Es día.';
       document.getElementById('playerMessage').innerHTML = `<p style="margin: 0;">${message}</p>`;
       document.getElementById('playerLogs').innerHTML = game.logs.slice(-8).map(log => `<div>${log}</div>`).join('');
+    }
+
+    function renderHostInfo(game) {
+      const modeLabel = game.narratorMode === 'host' ? 'Móvil del creador' : 'Pantalla del narrador';
+      const selectedText = Object.entries(game.selectedRoles || {})
+        .filter(([_, count]) => count > 0)
+        .map(([role, count]) => `${count} ${ROLES[role]?.name || role}${count > 1 ? 's' : ''}`)
+        .join(', ');
+      const roleText = selectedText || 'Aldeanos automáticos';
+      const hint = game.narratorHint || `Configuración: ${game.maxPlayers} jugadores.`;
+      const infoBox = document.getElementById('narratorInfo');
+      if (infoBox) {
+        infoBox.innerHTML = `<strong>Narrador:</strong> ${modeLabel}<br><strong>Roles:</strong> ${roleText}<br><strong>Adaptación:</strong> ${hint}`;
+      }
+    }
+
+    function speakNarration(message) {
+      if (!window.speechSynthesis) return;
+      const utterance = new SpeechSynthesisUtterance(message);
+      utterance.lang = 'es-ES';
+      speechSynthesis.cancel();
+      speechSynthesis.speak(utterance);
     }
 
     socket.on('error', (msg) => alert('❌ ' + msg));

@@ -75,6 +75,54 @@ function buildNarratorHint(selectedRoles, maxPlayers) {
   return `Juego para ${maxPlayers} jugadores: ${parts.join(', ')}.`;
 }
 
+function buildNightSteps(selectedRoles) {
+  const steps = [];
+  if (selectedRoles['amor'] > 0) {
+    steps.push('primera_noche_cupido');
+    steps.push('primera_noche_enamorados');
+  }
+  if (selectedRoles['vidente'] > 0) steps.push('primera_noche_vidente');
+  if (selectedRoles['hermanas'] > 0) steps.push('primera_noche_hermanas');
+  if (selectedRoles['ninoSalvaje'] > 0) steps.push('primera_noche_nino_salvaje');
+  if (selectedRoles['domador'] > 0) steps.push('primera_noche_domador');
+
+  const hasWolves = ['lobo', 'loboFeroz', 'hobreLoboAlbino', 'infectoPadre', 'loboBlanco', 'loboSalvaje']
+    .some(role => selectedRoles[role] > 0);
+  if (hasWolves) steps.push('noche_lobos');
+  if (selectedRoles['loboFeroz'] > 0) steps.push('noche_lobo_feroz');
+  if (selectedRoles['bruja'] > 0) steps.push('noche_bruja');
+  if (selectedRoles['zorro'] > 0) steps.push('noche_zorro');
+  if (selectedRoles['flautista'] > 0) steps.push('noche_flautista');
+  if (selectedRoles['vidente'] > 0) steps.push('noche_vidente');
+  if (selectedRoles['pequenia'] > 0) steps.push('noche_pequenia');
+  if (selectedRoles['inquisidor'] > 0) steps.push('noche_inquisidor');
+  steps.push('dia_revela_victimas');
+  return steps;
+}
+
+function assignRolesToPlayers(room) {
+  const roles = [];
+  const selected = room.selectedRoles || {};
+  for (const [role, count] of Object.entries(selected)) {
+    for (let i = 0; i < count; i++) {
+      roles.push(role);
+    }
+  }
+  while (roles.length < room.players.length) {
+    roles.push('aldeano');
+  }
+
+  for (let i = roles.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [roles[i], roles[j]] = [roles[j], roles[i]];
+  }
+
+  room.players.forEach((player, index) => {
+    player.role = roles[index] || 'aldeano';
+    player.alive = true;
+  });
+}
+
 let gameRooms = {};
 
 io.on('connection', (socket) => {
@@ -96,7 +144,7 @@ io.on('connection', (socket) => {
       narratorHint: '',
     };
     socket.join(code);
-    socket.emit('roomCreated', { code });
+    socket.emit('roomCreated', { code, narratorMode: gameRooms[code].narratorMode });
     io.to(code).emit('updateGame', gameRooms[code]);
   });
 
@@ -148,6 +196,7 @@ io.on('connection', (socket) => {
   socket.on('startGame', (data) => {
     const room = gameRooms[data.code];
     if (!room || room.host !== socket.id || room.players.length < 4) return;
+    assignRolesToPlayers(room);
     room.gameStarted = true;
     room.logs.push(`🎮 Partida iniciada: ${room.players.length} jugadores`);
     room.isNight = true;
@@ -155,6 +204,7 @@ io.on('connection', (socket) => {
     const narrationIntro = room.narratorHint
       ? `${room.narratorHint} ${room.narratorMode === 'host' ? 'Usa el móvil del creador como narrador.' : 'Muestra esta pantalla como narrador.'}`
       : 'Cupido, despierta y elige dos enamorados';
+    io.to(data.code).emit('updateGame', room);
     io.to(data.code).emit('gameStarted', room);
     io.to(data.code).emit('narratorGuide', { step: 'primera_noche_cupido', message: narrationIntro });
   });

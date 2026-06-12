@@ -267,13 +267,54 @@ function updateCounter(){
 }
 
 // ---- partida ----
+let roleOverlayRevealed = false;
+
 socket.on('yourRole', r => {
   myRole = r; roleVisible=false;
   $('role-name').textContent='🂠';
   $('role-desc').textContent='Toca para ver tu carta en secreto';
   $('role-extra').textContent='';
   $('role-card').classList.remove('wolf');
+  
+  // Mostrar overlay de asignación de rol a pantalla completa
+  roleOverlayRevealed = false;
+  $('role-overlay-title').textContent = '🂠';
+  $('role-overlay-desc').textContent = 'Toca para ver tu carta';
+  $('role-overlay-sub').textContent = 'En secreto';
+  $('role-overlay-card').style.background = 'linear-gradient(135deg, #374151 0%, #1f2937 100%)';
+  $('btn-confirm-role').style.display = 'none';
+  $('role-overlay').style.display = 'flex';
 });
+
+function handleRoleOverlayClick() {
+  if (!myRole) return;
+  roleOverlayRevealed = !roleOverlayRevealed;
+  
+  if (roleOverlayRevealed) {
+    $('role-overlay-title').textContent = myRole.name;
+    $('role-overlay-desc').textContent = myRole.desc;
+    $('role-overlay-sub').textContent = myRole.wolves ? '🐺 Tu manada: ' + myRole.wolves : '';
+    
+    const isWolfRole = myRole.team === 'wolves';
+    if (isWolfRole) {
+      $('role-overlay-card').style.background = 'linear-gradient(135deg, #7f1d1d 0%, #b91c1c 100%)';
+    } else {
+      $('role-overlay-card').style.background = 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)';
+    }
+    $('btn-confirm-role').style.display = 'block';
+  } else {
+    $('role-overlay-title').textContent = '🂠';
+    $('role-overlay-desc').textContent = 'Toca para ver tu carta';
+    $('role-overlay-sub').textContent = 'En secreto';
+    $('role-overlay-card').style.background = 'linear-gradient(135deg, #374151 0%, #1f2937 100%)';
+    $('btn-confirm-role').style.display = 'none';
+  }
+}
+
+function confirmRoleSelection() {
+  socket.emit('confirmRole');
+  $('role-overlay').style.display = 'none';
+}
 function toggleRole(){
   if(!myRole) return;
   roleVisible = !roleVisible;
@@ -333,6 +374,11 @@ function renderGame(){
   const amDead = me && !me.alive && state.phase!=='ended';
   $('dead-banner').style.display = amDead ? 'block' : 'none';
 
+  if (state.phase === 'role_reveal') {
+    const ready = state.readyCount || 0;
+    $('narrator').textContent = `🔮 Esperando confirmaciones de rol... (${ready}/${state.players.length} listos)`;
+  }
+
   $('game-players').innerHTML = state.players.map(p => {
     const role = p.roleName ? ` <span class="tag">→ ${p.roleName}</span>` : (p.revealedPrince?' <span class="tag">👑 Príncipe</span>':'');
     const alc = p.isAlcalde ? ' ⚖️' : '';
@@ -382,6 +428,16 @@ function castVote(pid){
     <p id="death-card-desc" style="font-size:18px; color:#ddd; margin-bottom:1.5rem;"></p>
     <div id="death-card-sub" style="font-size:14px; color:#aaa; font-style:italic;">Toca para revelar su carta</div>
   </div>
+</div>
+
+<div id="role-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:1100; align-items:center; justify-content:center; flex-direction:column; padding:20px;">
+  <h2 style="margin-bottom:1.5rem; text-align:center; font-size: 24px; color:#fbbf24;">🔮 ¡Comienza la partida!</h2>
+  <div id="role-overlay-card" class="role-card" onclick="handleRoleOverlayClick()" style="width:100%; max-width:400px; padding:2.5rem 1.5rem; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-height:350px; box-shadow:0 10px 25px rgba(0,0,0,0.5); cursor:pointer; margin-bottom:0;">
+    <h3 id="role-overlay-title" style="font-size:32px; margin-bottom:1rem;">🂠</h3>
+    <p id="role-overlay-desc" style="font-size:18px; color:#ddd; margin-bottom:1.5rem;">Toca para ver tu carta</p>
+    <div id="role-overlay-sub" style="font-size:13px; color:#aaa; font-style:italic;">En secreto</div>
+  </div>
+  <button id="btn-confirm-role" class="success" onclick="confirmRoleSelection()" style="display:none; width:100%; max-width:400px; margin-top:20px; padding:12px; font-size:16px;">De acuerdo</button>
 </div>
 
 </body>

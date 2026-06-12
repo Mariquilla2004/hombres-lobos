@@ -92,6 +92,7 @@ function publicState(room) {
     code: room.code,
     hostPid: room.hostPid,
     phase: room.phase,
+    readyCount: room.readyPlayers ? Object.keys(room.readyPlayers).length : 0,
     nightNumber: room.nightNumber,
     maxPlayers: room.maxPlayers,
     selectedRoles: room.selectedRoles,
@@ -811,12 +812,29 @@ io.on('connection', (socket) => {
       log(room, `ℹ️ Faltaban ${room.players.length - cards} cartas: se añaden Aldeanos.`);
     }
     assignRoles(room);
+    room.phase = 'role_reveal';
+    room.readyPlayers = {};
     room.players.forEach(p => {
       sendTo(room, p, 'yourRole', { role: p.role, ...ROLES[p.role], wolves: isWolf(p) ? names(room.players.filter(x => isWolf(x))) : null });
     });
-    announce(room, `🎮 Comienza la partida con ${room.players.length} habitantes.`);
-    announce(room, `⚖️ El azar designa Alcalde a ${room.players.find(p => p.isAlcalde).name}: su voto vale doble y cierra las votaciones.`);
-    startNight(room);
+    announce(room, '🔮 Cartas repartidas. Confirmad vuestro rol para empezar.');
+    broadcast(room);
+  });
+
+  socket.on('confirmRole', () => {
+    const room = myRoom, p = me();
+    if (!room || !p || room.phase !== 'role_reveal') return;
+    room.readyPlayers = room.readyPlayers || {};
+    room.readyPlayers[p.pid] = true;
+    
+    const allReady = room.players.every(pl => !pl.connected || room.readyPlayers[pl.pid]);
+    if (allReady) {
+      announce(room, `🎮 Comienza la partida con ${room.players.length} habitantes.`);
+      announce(room, `⚖️ El azar designa Alcalde a ${room.players.find(pl => pl.isAlcalde).name}: su voto vale doble y cierra las votaciones.`);
+      startNight(room);
+    } else {
+      broadcast(room);
+    }
   });
 
   socket.on('action', (data) => {
@@ -861,6 +879,7 @@ io.on('connection', (socket) => {
       witch: { heal: true, poison: true }, zorroPower: true,
       infectoUsed: false, wolfDiedEver: false, villagePowersLost: false, ancianoHit: false,
       votes: {}, pending: null, deathChain: [],
+      readyPlayers: {},
     });
     room.players.forEach(p => Object.assign(p, { alive: true, role: 'aldeano', becameWolf: false, charmed: false, lover: null, model: null, revealedPrince: false, shotFired: false, isAlcalde: false }));
     broadcast(room);

@@ -262,7 +262,9 @@ function runStep(room, step) {
         sendTo(room, nina, 'info', { message: `👧 Espías entre las contraventanas... Los lobos son: ${names(wolves)}.` });
       }
       return ask(room, step, wolves, {
-        prompt: `🐺 Tus compañeros lobos: ${names(wolves)}. Elegid víctima (gana la mayoría).`,
+        prompt: wolves.length > 1
+          ? `🐺 Tus compañeros lobos: ${names(wolves)}. Elegid víctima (gana la mayoría).`
+          : '🐺 Estás solo esta noche. Elige a tu víctima.',
         options: targetOpts(prey), count: 1,
       });
     }
@@ -349,6 +351,15 @@ function handleAction(room, player, data) {
   room.pending = null;
 
   switch (step) {
+    case 'cupido_confirm':
+    case 'ninoSalvaje_confirm':
+    case 'vidente_confirm':
+    case 'bruja_confirm':
+    case 'zorro_confirm':
+    case 'inquisidor_confirm':
+    case 'flautista_confirm': {
+      break;
+    }
     case 'cupido': {
       const pids = first;
       if (pids.length === 2) {
@@ -360,7 +371,10 @@ function handleAction(room, player, data) {
           announce(room, '💘 Cupido ha lanzado sus flechas.');
           const cup = byRole(room, 'cupido')[0];
           if (cup) {
-            sendTo(room, cup, 'info', { message: `💘 Has enamorado a ${p1.name} y ${p2.name}.` });
+            return ask(room, 'cupido_confirm', [cup], {
+              prompt: `💘 Has enamorado a ${p1.name} y ${p2.name}.`,
+              options: [{ pid: 'ok', name: 'De acuerdo' }]
+            });
           }
         }
       }
@@ -370,16 +384,24 @@ function handleAction(room, player, data) {
       const nino = byRole(room, 'ninoSalvaje')[0];
       nino.model = first[0] || null;
       const m = byPid(room, nino.model);
-      if (m) sendTo(room, nino, 'info', { message: `🐾 Tu modelo es ${m.name}. Reza por su vida.` });
+      if (m) {
+        return ask(room, 'ninoSalvaje_confirm', [nino], {
+          prompt: `🐾 Tu modelo es ${m.name}. Reza por su vida.`,
+          options: [{ pid: 'ok', name: 'De acuerdo' }]
+        });
+      }
       break;
     }
     case 'vidente': {
       const v = byRole(room, 'vidente')[0];
       const t = byPid(room, first[0]);
       if (t) {
-        sendTo(room, v, 'info', { message: `👁️ ${t.name} es... ${ROLES[t.role].name}.` });
         if (t.role === 'picaro') room.night.picaroSeen = true;
         announce(room, '👁️ La Vidente ha consultado las cartas.');
+        return ask(room, 'vidente_confirm', [v], {
+          prompt: `👁️ ${t.name} es... ${ROLES[t.role].name}.`,
+          options: [{ pid: 'ok', name: 'De acuerdo' }]
+        });
       }
       break;
     }
@@ -409,9 +431,22 @@ function handleAction(room, player, data) {
     case 'bruja': {
       const bruja = byRole(room, 'bruja')[0];
       const c = first[0];
-      if (c === 'curar') { room.night.healed = true; room.witch.heal = false; sendTo(room, bruja, 'info', { message: '🧪 Has usado tu poción de cura.' }); }
-      else if (c && c.startsWith('veneno:')) { room.night.poisoned = c.slice(7); room.witch.poison = false; sendTo(room, bruja, 'info', { message: '☠️ Has usado tu veneno.' }); }
-      break;
+      let msg = 'No has usado pociones esta noche.';
+      if (c === 'curar') {
+        room.night.healed = true;
+        room.witch.heal = false;
+        msg = '🧪 Has usado tu poción de curación.';
+      } else if (c && c.startsWith('veneno:')) {
+        const poisonPid = c.slice(7);
+        const poisonTarget = byPid(room, poisonPid);
+        room.night.poisoned = poisonPid;
+        room.witch.poison = false;
+        msg = `☠️ Has usado tu poción de veneno contra ${poisonTarget ? poisonTarget.name : 'un jugador'}.`;
+      }
+      return ask(room, 'bruja_confirm', [bruja], {
+        prompt: msg,
+        options: [{ pid: 'ok', name: 'De acuerdo' }]
+      });
     }
     case 'zorro': {
       const zorro = byRole(room, 'zorro')[0];
@@ -421,24 +456,50 @@ function handleAction(room, player, data) {
         const i = circle.findIndex(p => p.pid === t.pid);
         const group = [circle[i], circle[(i + 1) % circle.length], circle[(i - 1 + circle.length) % circle.length]];
         const found = group.some(isWolf);
-        sendTo(room, zorro, 'info', { message: found ? `🦊 ¡Hueles a lobo cerca de ${t.name}!` : `🦊 Nada sospechoso cerca de ${t.name}... y tu olfato se agota.` });
-        if (!found) room.zorroPower = false;
+        let msg = '';
+        if (found) {
+          msg = `🦊 ¡Hueles a lobo cerca de ${t.name}!`;
+        } else {
+          msg = `🦊 Nada sospechoso cerca de ${t.name}... y tu olfato se agota.`;
+          room.zorroPower = false;
+        }
+        return ask(room, 'zorro_confirm', [zorro], {
+          prompt: msg,
+          options: [{ pid: 'ok', name: 'De acuerdo' }]
+        });
       }
       break;
     }
     case 'inquisidor': {
       const inq = byRole(room, 'inquisidor')[0];
       const t = byPid(room, first[0]);
-      if (t) sendTo(room, inq, 'info', { message: `❓ ${t.name} pertenece al bando de ${isWolf(t) ? '🐺 los Lobos' : '🏡 la Aldea'}.` });
+      if (t) {
+        return ask(room, 'inquisidor_confirm', [inq], {
+          prompt: `❓ ${t.name} pertenece al bando de ${isWolf(t) ? '🐺 los Lobos' : '🏡 la Aldea'}.`,
+          options: [{ pid: 'ok', name: 'De acuerdo' }]
+        });
+      }
       break;
     }
     case 'flautista': {
+      const fl = byRole(room, 'flautista')[0];
+      const charmedNames = [];
       first.filter(pid => pid !== 'skip').forEach(pid => {
         const t = byPid(room, pid);
-        if (t) { t.charmed = true; sendTo(room, t, 'info', { message: '🪄 Has oído una melodía hipnótica... estás hechizado/a.' }); }
+        if (t) {
+          t.charmed = true;
+          charmedNames.push(t.name);
+          sendTo(room, t, 'info', { message: '🪄 Has oído una melodía hipnótica... estás hechizado/a.' });
+        }
       });
       announce(room, '🪄 El Flautista ha tocado su melodía.');
-      break;
+      let msg = charmedNames.length
+        ? `🪄 Has hechizado a: ${charmedNames.join(', ')}.`
+        : 'No has hechizado a nadie esta noche.';
+      return ask(room, 'flautista_confirm', [fl], {
+        prompt: msg,
+        options: [{ pid: 'ok', name: 'De acuerdo' }]
+      });
     }
     case 'cazador': {
       const t = byPid(room, first[0]);

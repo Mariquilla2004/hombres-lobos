@@ -53,15 +53,25 @@
     <h1>🐺 Hombres Lobos<br>de Castronegro</h1>
     <div class="card">
       <input id="inp-name" placeholder="Tu nombre" maxlength="20">
-      <button class="success" onclick="joinGame()">🚪 Entrar a jugar</button>
+      <hr style="border:0; border-top:1px solid #555; margin:15px 0;">
+      <button onclick="createRoom()">🌕 Crear sala nueva</button>
+      <div style="margin-top: 15px;">
+        <input id="inp-code" placeholder="Código de sala" maxlength="6" style="text-transform:uppercase; margin-bottom: 8px;">
+        <button class="success" onclick="joinRoom()">🚪 Unirse con código</button>
+      </div>
+      <div id="active-rooms-container" style="display:none; margin-top:20px; border-top:1px solid #555; padding-top:15px;">
+        <p style="font-weight:bold; color:#fbbf24; margin-bottom:8px; font-size:14px;">Partidas creadas:</p>
+        <div id="active-rooms-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
     </div>
-    <p class="small">Narrador automático: el juego os guía por turnos en cada móvil siguiendo las reglas del Best Of. Si se te cierra la página, vuelve a entrar con el mismo nombre.</p>
+    <p class="small">Narrador automático: el juego os guía por turnos en cada móvil siguiendo las reglas del Best Of. Si se te cierra la página, vuelve a entrar con el mismo nombre y código.</p>
   </div>
 
   <!-- SALA DE ESPERA -->
   <div id="screen-lobby" class="screen">
     <h2>Sala de espera</h2>
-    <p style="text-align:center; margin-bottom: 1rem; color: #fbbf24; font-weight: bold;">Todos los jugadores se unirán aquí</p>
+    <div class="code-display" id="lobby-code"></div>
+    <p style="text-align:center">Comparte el código para que se unan</p>
     <div class="card">
       <h3>Jugadores <span id="lobby-count"></span></h3>
       <div id="lobby-players"></div>
@@ -147,10 +157,32 @@ function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.r
 function toast(msg){ const t=$('toast'); t.textContent=msg; t.style.display='block'; setTimeout(()=>t.style.display='none',3500); }
 
 // ---- inicio ----
-function joinGame(){
+function createRoom(){
   const name = $('inp-name').value.trim();
   if(!name) return toast('Pon tu nombre');
-  socket.emit('joinRoom',{playerName:name});
+  socket.emit('createRoom',{hostName:name});
+}
+function joinRoom(){
+  const name = $('inp-name').value.trim(), code = $('inp-code').value.trim().toUpperCase();
+  if(!name) return toast('Pon tu nombre');
+  if(!code) return toast('Pon el código de sala');
+  socket.emit('joinRoom',{code,playerName:name});
+}
+socket.on('activeRooms', list => {
+  const container = $('active-rooms-container');
+  const listDiv = $('active-rooms-list');
+  if (list && list.length > 0) {
+    container.style.display = 'block';
+    listDiv.innerHTML = list.map(code => 
+      `<button class="option" onclick="joinActiveRoom('${code}')" style="background:#4b5563; padding:10px; margin:0; text-align:center; font-weight:bold;">👉 Unirse a la sala ${code}</button>`
+    ).join('');
+  } else {
+    container.style.display = 'none';
+  }
+});
+function joinActiveRoom(code) {
+  $('inp-code').value = code;
+  joinRoom();
 }
 
 socket.on('joined', d => { myPid=d.pid; isHost=d.isHost; });
@@ -226,6 +258,7 @@ function handleDeathCardClick() {
 
 function renderLobby(){
   show('screen-lobby');
+  $('lobby-code').textContent = state.code;
   $('lobby-count').textContent = `(${state.players.length})`;
   $('lobby-players').innerHTML = state.players.map(p =>
     `<div class="player-row"><span>${esc(p.name)}${p.pid===state.hostPid?' 👑':''}</span><span class="badge">${p.connected?'🟢':'🔌'}</span></div>`).join('');

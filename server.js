@@ -44,24 +44,13 @@ const ROLE_LIMITS = {
 
 const WOLF_ROLES = ['lobo', 'loboFeroz', 'hobreLoboAlbino', 'infectoPadre'];
 
-const globalRoom = {
-  code: 'GLOBAL',
-  hostPid: null,
-  players: [],
-  phase: 'lobby',
-  nightNumber: 0,
-  logs: ['🌅 Sala creada'],
-  selectedRoles: {},
-  maxPlayers: 24,
-  witch: { heal: true, poison: true },
-  zorroPower: true,
-  infectoUsed: false,
-  wolfDiedEver: false,
-  villagePowersLost: false,
-  ancianoHit: false,
-  votes: {},
-};
+let gameRooms = {};
 let pidCounter = 0;
+
+function broadcastActiveRooms() {
+  const list = Object.keys(gameRooms).filter(code => gameRooms[code].phase === 'lobby');
+  io.emit('activeRooms', list);
+}
 
 // ============ HELPERS ============
 const newPid = () => 'p' + (++pidCounter) + Math.random().toString(36).slice(2, 6);
@@ -749,9 +738,33 @@ io.on('connection', (socket) => {
 
   const me = () => myRoom && byPid(myRoom, myPid);
 
+  // Enviar lista de salas activas al conectar
+  socket.emit('activeRooms', Object.keys(gameRooms).filter(code => gameRooms[code].phase === 'lobby'));
+
+  socket.on('createRoom', (data) => {
+    const code = Math.random().toString(36).substring(2, 7).toUpperCase();
+    const pid = newPid();
+    gameRooms[code] = {
+      code, hostPid: pid,
+      players: [{ pid, socketId: socket.id, name: String(data.hostName || 'Anfitrión').slice(0, 20), role: 'aldeano', alive: true, connected: true }],
+      phase: 'lobby', nightNumber: 0, logs: ['🌅 Sala creada'],
+      selectedRoles: {}, maxPlayers: 8,
+      witch: { heal: true, poison: true }, zorroPower: true,
+      infectoUsed: false, wolfDiedEver: false, villagePowersLost: false, ancianoHit: false,
+      votes: {},
+    };
+    myRoom = gameRooms[code]; myPid = pid;
+    socket.join(code);
+    socket.emit('joined', { code, pid, isHost: true });
+    broadcast(myRoom);
+    broadcastActiveRooms();
+  });
+
   socket.on('joinRoom', (data) => {
-    const room = globalRoom;
+    const code = String(data.code || '').toUpperCase().trim();
+    const room = gameRooms[code];
     const name = String(data.playerName || '').slice(0, 20).trim();
+    if (!room) return socket.emit('errorMsg', 'Sala no encontrada');
     if (!name) return socket.emit('errorMsg', 'Pon un nombre');
 
     // reconexión: mismo nombre
@@ -774,11 +787,6 @@ io.on('connection', (socket) => {
     if (room.players.length >= room.maxPlayers) return socket.emit('errorMsg', 'Sala llena');
     
     const pid = newPid();
-    const isFirst = room.players.length === 0;
-    if (isFirst) {
-      room.hostPid = pid;
-    }
-    
     room.players.push({ pid, socketId: socket.id, name, role: 'aldeano', alive: true, connected: true });
     myRoom = room; myPid = pid;
     socket.join(room.code);
@@ -819,6 +827,7 @@ io.on('connection', (socket) => {
     });
     announce(room, '🔮 Cartas repartidas. Confirmad vuestro rol para empezar.');
     broadcast(room);
+    broadcastActiveRooms();
   });
 
   socket.on('confirmRole', () => {
@@ -883,6 +892,7 @@ io.on('connection', (socket) => {
     });
     room.players.forEach(p => Object.assign(p, { alive: true, role: 'aldeano', becameWolf: false, charmed: false, lover: null, model: null, revealedPrince: false, shotFired: false, isAlcalde: false }));
     broadcast(room);
+    broadcastActiveRooms();
   });
 
   socket.on('disconnect', () => {
@@ -901,22 +911,8 @@ io.on('connection', (socket) => {
       }
     }
     if (!room.players.length) {
-      Object.assign(room, {
-        hostPid: null,
-        players: [],
-        phase: 'lobby',
-        nightNumber: 0,
-        logs: ['🌅 Sala reiniciada'],
-        selectedRoles: {},
-        maxPlayers: 24,
-        witch: { heal: true, poison: true },
-        zorroPower: true,
-        infectoUsed: false,
-        wolfDiedEver: false,
-        villagePowersLost: false,
-        ancianoHit: false,
-        votes: {},
-      });
+      delete gameRooms[room.code];
+      broadcastActiveRooms();
       return;
     }
     broadcast(room);

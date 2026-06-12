@@ -76,7 +76,7 @@
         <p class="vote-progress" id="cards-counter"></p>
         <div id="role-selector"></div>
       </div>
-      <button class="success" onclick="socket.emit('startGame')">🎮 Empezar partida</button>
+      <button class="success" id="btn-start-game" onclick="socket.emit('startGame')">🎮 Empezar partida</button>
     </div>
     <p id="lobby-wait" class="small" style="text-align:center"></p>
   </div>
@@ -204,7 +204,13 @@ function chgRole(r,d){
 function updateCounter(){
   const t = totalSel(), n = state.players.length;
   const wolves = Object.entries(selectedRoles).filter(([r,c])=>WOLF_KEYS.includes(r)&&c>0).reduce((a,[r,c])=>a+c,0);
-  $('cards-counter').innerHTML = `Cartas: <b>${t}/${n}</b> jugadores · Lobos: ${wolves} ` + (t===n?'✅':(t>n?'⚠️ sobran cartas':'(lo que falte serán aldeanos)'));
+  let msg = (t===n?'✅':(t>n?'⚠️ sobran cartas':'(lo que falte serán aldeanos)'));
+  if (wolves < 1) {
+    msg += ' · <span style="color:#ef4444;font-weight:bold">⚠️ Falta al menos 1 lobo</span>';
+  }
+  $('cards-counter').innerHTML = `Cartas: <b>${t}/${n}</b> jugadores · Lobos: ${wolves} ` + msg;
+  const btn = $('btn-start-game');
+  if (btn) btn.disabled = wolves < 1;
 }
 
 // ---- partida ----

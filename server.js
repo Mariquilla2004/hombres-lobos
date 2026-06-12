@@ -710,6 +710,8 @@ io.on('connection', (socket) => {
     const room = myRoom;
     if (!room || room.hostPid !== myPid || room.phase !== 'lobby') return;
     if (room.players.length < 4) return socket.emit('errorMsg', 'Mínimo 4 jugadores');
+    const wolves = Object.entries(room.selectedRoles || {}).filter(([r, c]) => WOLF_ROLES.includes(r) && c > 0).reduce((a, [r, c]) => a + c, 0);
+    if (wolves < 1) return socket.emit('errorMsg', 'Debe haber por lo menos un Hombre Lobo para empezar');
     const cards = totalCards(room.selectedRoles);
     if (cards > room.players.length) return socket.emit('errorMsg', `Has elegido ${cards} cartas para ${room.players.length} jugadores. Quita roles.`);
     if (cards < room.players.length && !(room.selectedRoles.aldeano > 0)) {

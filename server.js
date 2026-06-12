@@ -44,7 +44,23 @@ const ROLE_LIMITS = {
 
 const WOLF_ROLES = ['lobo', 'loboFeroz', 'hobreLoboAlbino', 'infectoPadre'];
 
-let gameRooms = {};
+const globalRoom = {
+  code: 'GLOBAL',
+  hostPid: null,
+  players: [],
+  phase: 'lobby',
+  nightNumber: 0,
+  logs: ['🌅 Sala creada'],
+  selectedRoles: {},
+  maxPlayers: 24,
+  witch: { heal: true, poison: true },
+  zorroPower: true,
+  infectoUsed: false,
+  wolfDiedEver: false,
+  villagePowersLost: false,
+  ancianoHit: false,
+  votes: {},
+};
 let pidCounter = 0;
 
 // ============ HELPERS ============
@@ -671,28 +687,9 @@ io.on('connection', (socket) => {
 
   const me = () => myRoom && byPid(myRoom, myPid);
 
-  socket.on('createRoom', (data) => {
-    const code = Math.random().toString(36).substring(2, 7).toUpperCase();
-    const pid = newPid();
-    gameRooms[code] = {
-      code, hostPid: pid,
-      players: [{ pid, socketId: socket.id, name: String(data.hostName || 'Anfitrión').slice(0, 20), role: 'aldeano', alive: true, connected: true }],
-      phase: 'lobby', nightNumber: 0, logs: ['🌅 Sala creada'],
-      selectedRoles: {}, maxPlayers: 8,
-      witch: { heal: true, poison: true }, zorroPower: true,
-      infectoUsed: false, wolfDiedEver: false, villagePowersLost: false, ancianoHit: false,
-      votes: {},
-    };
-    myRoom = gameRooms[code]; myPid = pid;
-    socket.join(code);
-    socket.emit('joined', { code, pid, isHost: true });
-    broadcast(myRoom);
-  });
-
   socket.on('joinRoom', (data) => {
-    const room = gameRooms[(data.code || '').toUpperCase().trim()];
+    const room = globalRoom;
     const name = String(data.playerName || '').slice(0, 20).trim();
-    if (!room) return socket.emit('errorMsg', 'Sala no encontrada');
     if (!name) return socket.emit('errorMsg', 'Pon un nombre');
 
     // reconexión: mismo nombre
@@ -702,6 +699,9 @@ io.on('connection', (socket) => {
       existing.socketId = socket.id; existing.connected = true;
       myRoom = room; myPid = existing.pid;
       socket.join(room.code);
+      if (!room.hostPid) {
+        room.hostPid = existing.pid;
+      }
       socket.emit('joined', { code: room.code, pid: existing.pid, isHost: room.hostPid === existing.pid });
       if (room.phase !== 'lobby') socket.emit('yourRole', { role: existing.role, ...ROLES[existing.role], wolves: isWolf(existing) ? names(aliveWolves(room)) : null });
       announce(room, `🔄 ${existing.name} ha vuelto.`);
@@ -710,11 +710,17 @@ io.on('connection', (socket) => {
     }
     if (room.phase !== 'lobby') return socket.emit('errorMsg', 'La partida ya comenzó');
     if (room.players.length >= room.maxPlayers) return socket.emit('errorMsg', 'Sala llena');
+    
     const pid = newPid();
+    const isFirst = room.players.length === 0;
+    if (isFirst) {
+      room.hostPid = pid;
+    }
+    
     room.players.push({ pid, socketId: socket.id, name, role: 'aldeano', alive: true, connected: true });
     myRoom = room; myPid = pid;
     socket.join(room.code);
-    socket.emit('joined', { code: room.code, pid, isHost: false });
+    socket.emit('joined', { code: room.code, pid, isHost: room.hostPid === pid });
     broadcast(room);
   });
 
@@ -805,9 +811,34 @@ io.on('connection', (socket) => {
     p.connected = false;
     if (room.phase === 'lobby') {
       room.players = room.players.filter(x => x.pid !== p.pid);
-      if (room.hostPid === p.pid && room.players.length) room.hostPid = room.players[0].pid;
     }
-    if (!room.players.length) { delete gameRooms[room.code]; return; }
+    // Reasignar host si se desconectó el actual
+    if (room.hostPid === p.pid && room.players.length) {
+      const nextHost = room.players.find(x => x.connected) || room.players[0];
+      if (nextHost) {
+        room.hostPid = nextHost.pid;
+        announce(room, `👑 El mando de la sala pasa a ${nextHost.name}.`);
+      }
+    }
+    if (!room.players.length) {
+      Object.assign(room, {
+        hostPid: null,
+        players: [],
+        phase: 'lobby',
+        nightNumber: 0,
+        logs: ['🌅 Sala reiniciada'],
+        selectedRoles: {},
+        maxPlayers: 24,
+        witch: { heal: true, poison: true },
+        zorroPower: true,
+        infectoUsed: false,
+        wolfDiedEver: false,
+        villagePowersLost: false,
+        ancianoHit: false,
+        votes: {},
+      });
+      return;
+    }
     broadcast(room);
   });
 });
